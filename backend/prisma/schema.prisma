@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  Admin
+  Manager
+  Team
+}
+
+enum ProjectStatus {
+  Active
+  Completed
+  Archived
+  OnHold
+}
+
+enum ProjectMemberRole {
+  Owner
+  Manager
+  Member
+}
+
+enum TaskStatus {
+  Todo
+  InProgress
+  Review
+  Done
+}
+
+enum TaskPriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  settings  Json?
+  users     User[]
+  projects  Project[]
+  auditLogs AuditLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id          String   @id @default(uuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  email       String   @unique
+  name        String
+  password    String
+  avatar      String?
+  role        Role
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  sessions    UserSession[]
+  projects    Project[] @relation("ProjectOwner")
+  memberships ProjectMember[]
+  assignedTasks Task[] @relation("TaskAssignee")
+  reportedTasks Task[] @relation("TaskReporter")
+  auditLogs   AuditLog[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  refreshToken String   @unique
+  deviceInfo   Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  orgId       String
+  org         Organization  @relation(fields: [orgId], references: [id])
+  ownerId     String
+  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  name        String
+  description String?
+  status      ProjectStatus @default(Active)
+  startDate   DateTime?
+  dueDate     DateTime?
+  settings    Json?         // For project-specific settings
+  members     ProjectMember[]
+  tasks       Task[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model ProjectMember {
+  id        String            @id @default(uuid())
+  projectId String
+  userId    String
+  role      ProjectMemberRole @default(Member)
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id])
+  joinedAt  DateTime          @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      TaskStatus   @default(Todo)
+  priority    TaskPriority @default(Medium)
+  assigneeId  String?
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporterId  String
+  reporter    User         @relation("TaskReporter", fields: [reporterId], references: [id])
+  estimate    Float?
+  dueDate     DateTime?
+  labels      String[]
+  position    Int?         // For ordering tasks
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  orgId      String
+  org        Organization @relation(fields: [orgId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([orgId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
