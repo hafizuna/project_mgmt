@@ -36,6 +36,8 @@ model User {
   memberships   ProjectMember[]
   assignedTasks Task[]          @relation("TaskAssignee")
   reportedTasks Task[]          @relation("TaskReporter")
+  taskComments  TaskComment[]
+  taskHistory   TaskHistory[]
   org           Organization    @relation(fields: [orgId], references: [id])
   sessions      UserSession[]
 }
@@ -83,7 +85,7 @@ model ProjectMember {
 }
 
 model Task {
-  id          String       @id @default(uuid())
+  id          String        @id @default(uuid())
   projectId   String
   title       String
   description String?
@@ -92,14 +94,16 @@ model Task {
   estimate    Float?
   dueDate     DateTime?
   labels      String[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   position    Int?
-  status      TaskStatus   @default(Todo)
-  priority    TaskPriority @default(Medium)
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  reporter    User         @relation("TaskReporter", fields: [reporterId], references: [id])
+  status      TaskStatus    @default(Todo)
+  priority    TaskPriority  @default(Medium)
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter    User          @relation("TaskReporter", fields: [reporterId], references: [id])
+  comments    TaskComment[]
+  history     TaskHistory[]
 }
 
 model AuditLog {
@@ -119,6 +123,34 @@ model AuditLog {
   @@index([orgId, createdAt])
   @@index([userId, createdAt])
   @@index([entityType, entityId])
+}
+
+model TaskComment {
+  id        String        @id @default(uuid())
+  content   String
+  taskId    String
+  authorId  String
+  parentId  String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  author    User          @relation(fields: [authorId], references: [id])
+  parent    TaskComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   TaskComment[] @relation("CommentReplies")
+  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model TaskHistory {
+  id          String            @id @default(uuid())
+  taskId      String
+  userId      String
+  action      TaskHistoryAction
+  field       String?
+  oldValue    String?
+  newValue    String?
+  description String
+  createdAt   DateTime          @default(now())
+  task        Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id])
 }
 
 enum Role {
@@ -159,4 +191,17 @@ enum TaskPriority {
   Medium
   High
   Critical
+}
+
+enum TaskHistoryAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  ASSIGNED
+  UNASSIGNED
+  COMMENT_ADDED
+  DUE_DATE_CHANGED
+  PRIORITY_CHANGED
+  DESCRIPTION_CHANGED
+  TITLE_CHANGED
 }

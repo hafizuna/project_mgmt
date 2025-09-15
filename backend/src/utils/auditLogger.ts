@@ -177,6 +177,9 @@ export const AUDIT_ACTIONS = {
   TASK_STATUS_CHANGED: 'task.status_changed',
   TASK_ASSIGNED: 'task.assigned',
   TASK_UNASSIGNED: 'task.unassigned',
+  TASK_COMMENT_ADDED: 'task.comment_added',
+  TASK_COMMENT_UPDATED: 'task.comment_updated',
+  TASK_COMMENT_DELETED: 'task.comment_deleted',
   
   // Organization actions
   ORG_SETTINGS_UPDATED: 'org.settings_updated',

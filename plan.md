@@ -225,17 +225,19 @@ UserSession {
   createdAt: DateTime
 }
 
--- Project Structure
+-- Project Structure (Enhanced)
 Project {
   id: UUID
   orgId: UUID (FK)
+  ownerId: UUID (FK User) -- Must be Admin or Manager
   name: String
   description: String?
-  status: Enum (Active, Completed, Archived)
-  startDate: Date?
-  dueDate: Date?
-  ownerId: UUID (FK User) -- Must be Admin or Manager
-  settings: JSON
+  startDate: DateTime? -- Enhanced with time support
+  dueDate: DateTime?   -- Enhanced with time support (renamed from endDate)
+  status: Enum (Active, Completed, Archived, OnHold) -- Enhanced with OnHold
+  budget: Float? -- NEW: Budget tracking with currency support
+  priority: Enum (Low, Medium, High, Critical) -- NEW: Project priority levels
+  settings: JSON -- Flexible project configuration
   createdAt: DateTime
   updatedAt: DateTime
 }
@@ -246,6 +248,7 @@ ProjectMember {
   userId: UUID (FK)
   role: Enum (Owner, Manager, Member) -- Project-level roles
   joinedAt: DateTime
+  -- CONSTRAINT: Unique combination of projectId + userId
 }
 
 -- Sprint Management
@@ -262,59 +265,51 @@ Sprint {
   updatedAt: DateTime
 }
 
--- Task Management
+-- Task Management (Enhanced)
 Task {
   id: UUID
   projectId: UUID (FK)
-  sprintId: UUID? (FK)
   title: String
   description: String?
   status: Enum (Todo, InProgress, Review, Done)
   priority: Enum (Low, Medium, High, Critical)
-  assigneeId: UUID? (FK User)
-  reporterId: UUID (FK User)
-  estimatedHours: Float?
+  assigneeId: UUID? (FK User) -- Must be project member
+  reporterId: UUID (FK User) -- Task creator
+  estimate: Float? -- Estimated hours (renamed from estimatedHours)
   dueDate: DateTime?
-  labels: String[]
-  parentTaskId: UUID? (FK Task - for subtasks)
-  position: Int (for ordering)
+  labels: String[] -- Array of task tags/labels
+  position: Int? -- Task ordering within projects
   createdAt: DateTime
   updatedAt: DateTime
+  -- NOTE: sprintId removed (will be added in Phase 5)
+  -- NOTE: parentTaskId removed (subtasks will be separate feature)
 }
 
 TaskComment {
   id: UUID
-  taskId: UUID (FK)
-  userId: UUID (FK)
-  content: String
-  mentions: UUID[] (User IDs)
-  parentCommentId: UUID? (FK - for threading)
+  taskId: UUID (FK) -- Cascade delete when task removed
+  authorId: UUID (FK User) -- Comment author
+  content: String -- Rich text content
+  parentId: UUID? (FK TaskComment) -- For threaded replies
   createdAt: DateTime
   updatedAt: DateTime
-}
-
-TaskAttachment {
-  id: UUID
-  taskId: UUID (FK)
-  userId: UUID (FK)
-  filename: String
-  originalName: String
-  path: String
-  size: Int
-  mimeType: String
-  createdAt: DateTime
+  -- NOTE: mentions field removed (will be enhanced later)
 }
 
 TaskHistory {
   id: UUID
-  taskId: UUID (FK)
-  userId: UUID (FK)
-  action: String
-  field: String?
-  oldValue: String?
-  newValue: String?
+  taskId: UUID (FK) -- Cascade delete when task removed
+  userId: UUID (FK User) -- User who made the change
+  action: Enum (CREATED, UPDATED, STATUS_CHANGED, ASSIGNED, UNASSIGNED, COMMENT_ADDED, DUE_DATE_CHANGED, PRIORITY_CHANGED, DESCRIPTION_CHANGED, TITLE_CHANGED)
+  field: String? -- Which field was changed
+  oldValue: String? -- Previous value (JSON serialized)
+  newValue: String? -- New value (JSON serialized)
+  description: String -- Human-readable change description
   createdAt: DateTime
+  -- NOTE: Separate from audit logs (user-focused vs compliance-focused)
 }
+
+-- NOTE: TaskAttachment model not yet implemented (will be added with file upload functionality)
 
 -- Meeting Management
 Meeting {
@@ -954,32 +949,427 @@ VITE_WS_URL=https://collabsync.company.local
 - **API Client Architecture**: Clean API client structure with proper error handling
 - **Fixed Issues**: Resolved audit logs display and user listing functionality
 
-### 🚧 Phase 3: Project Management (Weeks 5-6) - IN PROGRESS
-- [ ] Project CRUD operations (Manager+)
-- [ ] Project member management
-- [ ] Role-based project access control
+### ✅ Phase 3: Project Management (Weeks 5-6) - COMPLETED
+- [x] Project CRUD operations (Manager+)
+- [x] Project member management
+- [x] Role-based project access control
 - [ ] File upload functionality
-- [ ] Project dashboard and overview
+- [x] Project dashboard and overview
 
-### Phase 4: Task Management (Weeks 7-8)
-- [ ] Task CRUD with role-based permissions
+**Completed Features:**
+- **Project CRUD Operations**: Complete project management interface
+  - Create projects (Manager+ only) with comprehensive form validation
+  - Read/view projects with role-based filtering (Admin: all projects, Manager: owned/assigned projects, Team: assigned projects)
+  - Update projects with role-based permissions (owners/managers can edit, team members can update status if project member)
+  - Delete projects (Admin/Project owners only)
+  - Advanced project filtering and search functionality
+- **Project Member Management**: Full team collaboration features
+  - Add project members with role assignment (Owner/Manager/Member)
+  - Update member roles (Project managers+ only)
+  - Remove project members (Project managers+ only)
+  - Real-time member list updates
+  - Role-based member visibility and management
+- **Role-Based Access Control**: Comprehensive permission system
+  - Project-level access controls integrated with user roles
+  - Admin: Full access to all organizational projects
+  - Manager: Access to owned/assigned projects with full management rights
+  - Team: Access to assigned projects with contribution rights (can update project status, participate in tasks)
+  - Dynamic UI components that show/hide based on user permissions
+- **Project Dashboard**: Rich project overview interface
+  - Project details view with comprehensive information display
+  - Project member management interface
+  - Task integration showing project tasks in project detail view
+  - Project statistics and progress tracking
+  - Role-based action buttons and management interface
+
+**Database Schema Enhancements:**
+- **Project Model Enhanced Fields**:
+  - `budget: Float?` - Project budget tracking with currency formatting
+  - `priority: ProjectPriority` - Project priority levels (Low, Medium, High, Critical)
+  - `status: ProjectStatus` - Enhanced project status (Active, Completed, Archived, OnHold)
+  - `startDate: DateTime?` - Project start date with calendar integration
+  - `dueDate: DateTime?` - Project due date with deadline tracking
+  - `settings: Json?` - Flexible project-specific configuration storage
+- **ProjectMember Model**:
+  - Enhanced role system with `ProjectMemberRole` enum (Owner, Manager, Member)
+  - `joinedAt: DateTime` - Member joining timestamp tracking
+  - Unique constraint on `[projectId, userId]` to prevent duplicate memberships
+- **New Enums Added**:
+  - `ProjectStatus`: Active, Completed, Archived, OnHold
+  - `ProjectPriority`: Low, Medium, High, Critical
+  - `ProjectMemberRole`: Owner, Manager, Member
+
+**API Endpoints Implemented**:
+- `GET /api/projects` - List projects with role-based filtering
+- `POST /api/projects` - Create project (Manager+ only)
+- `GET /api/projects/:id` - Get project details with access control
+- `PUT /api/projects/:id` - Update project with role-based permissions
+- `DELETE /api/projects/:id` - Delete project (Admin/Owner only)
+- `GET /api/projects/:id/members` - Get project members
+- `POST /api/projects/:id/members` - Add project member (Manager+ only)
+- `PUT /api/projects/:id/members/:userId` - Update member role (Manager+ only)
+- `DELETE /api/projects/:id/members/:userId` - Remove member (Manager+ only)
+
+### ✅ Phase 4: Task Management (Weeks 7-8) - COMPLETED
+- [x] Task CRUD with role-based permissions
 - [ ] Kanban board implementation
-- [ ] Task comments and mentions
-- [ ] Task history and activity feeds
-- [ ] Basic task filtering and search
+- [x] Task comments and mentions
+- [x] Task history and activity feeds
+- [x] Basic task filtering and search
 
-### Phase 5: Sprint Management (Weeks 9-10)
+**Completed Features:**
+- **Task CRUD Operations**: Complete task lifecycle management
+  - Create tasks within projects (Project members with write access)
+  - Read/view tasks with comprehensive detail view including assignee, reporter, project context
+  - Update tasks with granular field-level permissions (assignee/reporter/managers can edit)
+  - Delete tasks (Manager+ only)
+  - Task assignment/unassignment with project member validation
+  - Status updates with real-time UI feedback
+- **Task Comments System**: Full threaded discussion capability
+  - Add comments to tasks with rich text support
+  - Threaded replies (2 levels deep) for organized discussions
+  - Edit/delete own comments with proper permissions
+  - Real-time comment updates with optimistic UI
+  - User avatars and timestamps for all comments
+  - @mentions capability ready (backend support implemented)
+- **Task History & Activity Timeline**: Comprehensive change tracking
+  - Automatic activity logging for all task changes (separate from audit logs)
+  - Human-readable activity descriptions with before/after values
+  - Chronological timeline grouped by date
+  - Visual activity indicators with color-coded icons
+  - Field-level change tracking (status, assignee, priority, due date, etc.)
+  - User attribution for all changes
+- **Task Management Features**:
+  - Advanced task filtering and search within projects
+  - Task assignment to project members with validation
+  - Priority levels (Low, Medium, High, Critical) with visual indicators
+  - Due date management with calendar integration
+  - Task labels/tags system for organization
+  - Estimated hours tracking for project planning
+  - Task position/ordering for custom organization
+- **Project Integration**: Seamless task-project relationship
+  - Tasks displayed within project detail pages
+  - Project-based task filtering and navigation
+  - Task creation pre-populated with project context
+  - Project member validation for task assignments
+
+**Database Schema Enhancements:**
+- **Task Model Enhanced Fields**:
+  - `estimate: Float?` - Estimated hours for task completion
+  - `dueDate: DateTime?` - Task deadline with calendar integration
+  - `labels: String[]` - Array of task tags/labels for organization
+  - `position: Int?` - Task ordering within projects
+  - `priority: TaskPriority` - Task priority levels (Low, Medium, High, Critical)
+  - `status: TaskStatus` - Task status (Todo, InProgress, Review, Done)
+- **TaskComment Model** (New): Threaded comments system
+  - `content: String` - Comment content with rich text support
+  - `parentId: String?` - Parent comment ID for threading
+  - `authorId: String` - Comment author with user relationship
+  - Cascade delete when task is removed
+  - Created/updated timestamps for version tracking
+- **TaskHistory Model** (New): Activity tracking system
+  - `action: TaskHistoryAction` - Specific action type for categorization
+  - `field: String?` - Which field was changed
+  - `oldValue: String?` - Previous value (JSON serialized)
+  - `newValue: String?` - New value (JSON serialized)
+  - `description: String` - Human-readable change description
+  - Separate from audit logs (user-focused vs compliance-focused)
+- **New Enums Added**:
+  - `TaskStatus`: Todo, InProgress, Review, Done
+  - `TaskPriority`: Low, Medium, High, Critical
+  - `TaskHistoryAction`: CREATED, UPDATED, STATUS_CHANGED, ASSIGNED, UNASSIGNED, COMMENT_ADDED, DUE_DATE_CHANGED, PRIORITY_CHANGED, DESCRIPTION_CHANGED, TITLE_CHANGED
+
+**API Endpoints Implemented**:
+- `GET /api/projects/:projectId/tasks` - List project tasks with filtering and pagination
+- `POST /api/projects/:projectId/tasks` - Create task in project
+- `GET /api/tasks/:id` - Get task details with full context
+- `PUT /api/tasks/:id` - Update task with field-level change tracking
+- `DELETE /api/tasks/:id` - Delete task (Manager+ only)
+- `PUT /api/tasks/:id/assign` - Assign/unassign task to team members
+- `GET /api/tasks/:taskId/comments` - Get task comments with threading
+- `POST /api/tasks/:taskId/comments` - Add comment or reply
+- `PUT /api/comments/:commentId` - Update comment (author only)
+- `DELETE /api/comments/:commentId` - Delete comment (author only)
+- `GET /api/tasks/:taskId/history` - Get task activity timeline
+
+**Frontend Components Implemented**:
+- **Task Management Pages**: TasksList, TaskForm, TaskDetail with full CRUD
+- **Task Comments Component**: Threaded discussion interface with edit/delete
+- **Task History Component**: Visual activity timeline with change tracking
+- **Project Integration**: Tasks displayed in project detail pages
+- **Role-Based UI**: Components show/hide based on user permissions
+- **Real-time Updates**: Optimistic UI updates for better user experience
+
+### 🚧 Phase 5: Sprint/Iteration Management (Weeks 9-10) - IN PROGRESS
 - [ ] Sprint creation and management (Manager+)
 - [ ] Sprint boards and task assignment
 - [ ] Sprint reports and burndown charts
 - [ ] Sprint retrospective tools
 
-### Phase 6: Collaboration Features (Weeks 11-12)
+**What is Sprint Management?**
+Sprint Management is an Agile/Scrum methodology that organizes work into short, time-boxed periods (sprints) typically lasting 1-4 weeks. It helps teams:
+- **Focus on Priorities**: Work on most important tasks first
+- **Deliver Regularly**: Complete working features every sprint
+- **Adapt Quickly**: Adjust plans based on feedback and changing requirements
+- **Measure Progress**: Track team velocity and delivery consistency
+- **Reduce Risk**: Catch problems early through frequent delivery cycles
+
+**Sprint Workflow Example:**
+```
+Project: "Customer Management System"
+
+Sprint 1 (2 weeks): "Customer CRUD Operations"
+├── Task: Create customer list page
+├── Task: Build customer detail view
+├── Task: Implement add customer form
+└── Task: Add customer search functionality
+
+Sprint 2 (2 weeks): "Customer Communication"
+├── Task: Email integration setup
+├── Task: Send customer notifications
+├── Task: Communication history tracking
+└── Task: Email templates management
+```
+
+**Implementation Plan:**
+
+**Database Schema Changes:**
+- **Sprint Model** (New):
+  ```sql
+  Sprint {
+    id: UUID
+    projectId: UUID (FK) -- Sprint belongs to a project
+    name: String -- Sprint name/title
+    goal: String? -- Sprint objective/goal
+    startDate: DateTime -- Sprint start date
+    endDate: DateTime -- Sprint end date
+    status: Enum (Planning, Active, Completed, Cancelled)
+    capacity: Int? -- Team capacity in hours
+    createdById: UUID (FK User) -- Must be Manager+
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+- **Task Model Enhancement**:
+  - Add `sprintId: UUID? (FK Sprint)` - Link tasks to sprints
+  - Add `storyPoints: Int?` - Task complexity estimation
+- **SprintRetrospective Model** (New):
+  ```sql
+  SprintRetrospective {
+    id: UUID
+    sprintId: UUID (FK)
+    whatWentWell: String[] -- Positive feedback
+    whatNeedsImprovement: String[] -- Areas for improvement
+    actionItems: String[] -- Concrete next steps
+    createdById: UUID (FK User)
+    createdAt: DateTime
+  }
+  ```
+
+**Frontend Components to Build:**
+- **Sprint Management Pages**:
+  - `SprintsList` - View all project sprints
+  - `SprintForm` - Create/edit sprint
+  - `SprintDetail` - Sprint overview with tasks
+  - `SprintBoard` - Kanban view for sprint tasks
+- **Sprint Planning Components**:
+  - `SprintPlanningModal` - Drag tasks into sprint
+  - `TaskEstimation` - Story points estimation
+  - `SprintCapacity` - Team capacity planning
+- **Sprint Reporting Components**:
+  - `BurndownChart` - Sprint progress tracking
+  - `VelocityChart` - Team velocity over time
+  - `SprintRetrospective` - Sprint review interface
+
+**API Endpoints to Implement:**
+- `GET /api/projects/:projectId/sprints` - List project sprints
+- `POST /api/projects/:projectId/sprints` - Create sprint (Manager+)
+- `GET /api/sprints/:id` - Get sprint details
+- `PUT /api/sprints/:id` - Update sprint (Manager+)
+- `DELETE /api/sprints/:id` - Delete sprint (Manager+)
+- `POST /api/sprints/:id/start` - Start sprint (Manager+)
+- `POST /api/sprints/:id/complete` - Complete sprint (Manager+)
+- `GET /api/sprints/:id/burndown` - Get burndown data
+- `POST /api/sprints/:id/retrospective` - Add retrospective
+
+**Business Logic:**
+- Only Managers+ can create/manage sprints
+- Tasks can be moved between sprints
+- Active sprint validation (only one active sprint per project)
+- Burndown chart calculations
+- Velocity tracking across sprints
+
+### 🚧 Phase 6: Collaboration Features (Weeks 11-12) - IN PROGRESS
 - [ ] Real-time updates (Socket.IO)
 - [ ] Meeting management system (Manager+)
 - [ ] Notification system (in-app + email)
 - [ ] Team collaboration tools
 - [ ] Basic messaging functionality
+
+**What are Collaboration Features?**
+Collaboration features enable teams to communicate, coordinate, and work together effectively in real-time:
+
+**Real-time Updates:**
+- **Purpose**: Instant updates without page refresh
+- **Example**: When someone updates a task status, all team members see the change immediately
+- **Benefits**: Reduces conflicts, improves coordination, enhances user experience
+
+**Meeting Management:**
+- **Purpose**: Organize team meetings, track agendas, and convert discussions into actionable tasks
+- **Features**: Meeting scheduling, attendee management, note-taking, action item creation
+- **Benefits**: Better meeting organization, clear follow-up actions, meeting history tracking
+
+**Notification System:**
+- **Purpose**: Keep team members informed about important changes and deadlines
+- **Types**: In-app notifications, email alerts, browser push notifications
+- **Benefits**: Improved communication, reduced missed deadlines, better task awareness
+
+**Implementation Plan:**
+
+**1. Real-time Updates (Socket.IO)**
+
+**Backend Implementation:**
+- **Install Dependencies**: `socket.io`, `@nestjs/websockets`
+- **WebSocket Gateway**:
+  ```typescript
+  @WebSocketGateway({
+    cors: { origin: process.env.FRONTEND_URL },
+    namespace: '/ws'
+  })
+  export class RealtimeGateway {
+    @WebSocketServer() server: Server;
+    
+    // Join project room for updates
+    @SubscribeMessage('join-project')
+    handleJoinProject(client: Socket, projectId: string) {
+      client.join(`project-${projectId}`);
+    }
+    
+    // Emit task updates to project members
+    emitTaskUpdate(projectId: string, taskUpdate: any) {
+      this.server.to(`project-${projectId}`).emit('task-updated', taskUpdate);
+    }
+  }
+  ```
+- **Integration Points**: Emit events when tasks/projects are updated
+
+**Frontend Implementation:**
+- **Socket.IO Client**: Connect to backend WebSocket
+- **Real-time Hooks**:
+  ```typescript
+  // hooks/useRealtime.ts
+  export function useRealtime(projectId: string) {
+    useEffect(() => {
+      socket.emit('join-project', projectId);
+      socket.on('task-updated', handleTaskUpdate);
+      return () => socket.off('task-updated');
+    }, [projectId]);
+  }
+  ```
+- **Live Updates**: Update UI when receiving WebSocket events
+
+**2. Meeting Management System**
+
+**Database Schema:**
+- **Meeting Model** (New):
+  ```sql
+  Meeting {
+    id: UUID
+    projectId: UUID? (FK) -- Optional project association
+    orgId: UUID (FK) -- Organization-wide meetings
+    title: String
+    description: String?
+    startTime: DateTime
+    endTime: DateTime
+    location: String? -- Physical location
+    meetingLink: String? -- Video conference link
+    agenda: JSON -- Structured agenda items
+    notes: String? -- Meeting notes
+    status: Enum (Scheduled, InProgress, Completed, Cancelled)
+    createdById: UUID (FK User) -- Must be Manager+
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+- **MeetingAttendee Model** (New):
+  ```sql
+  MeetingAttendee {
+    id: UUID
+    meetingId: UUID (FK)
+    userId: UUID (FK)
+    isRequired: Boolean -- Required vs optional attendee
+    status: Enum (Pending, Accepted, Declined, Tentative)
+    respondedAt: DateTime?
+  }
+  ```
+- **MeetingActionItem Model** (New):
+  ```sql
+  MeetingActionItem {
+    id: UUID
+    meetingId: UUID (FK)
+    taskId: UUID? (FK Task) -- Link to created task
+    description: String
+    assigneeId: UUID? (FK User)
+    dueDate: DateTime?
+    status: Enum (Open, InProgress, Completed)
+    createdAt: DateTime
+  }
+  ```
+
+**Frontend Components:**
+- **Meeting Pages**: `MeetingsList`, `MeetingForm`, `MeetingDetail`
+- **Meeting Components**: `MeetingCalendar`, `AttendeeList`, `AgendaEditor`
+- **Integration**: `ActionItemToTaskConverter`
+
+**3. Notification System**
+
+**Database Schema:**
+- **Notification Model** (New):
+  ```sql
+  Notification {
+    id: UUID
+    userId: UUID (FK)
+    type: Enum (TASK_ASSIGNED, TASK_DUE_SOON, MEETING_REMINDER, PROJECT_UPDATE, COMMENT_MENTION)
+    title: String
+    message: String
+    data: JSON -- Additional context data
+    entityType: String? -- Related entity (Task, Project, Meeting)
+    entityId: UUID? -- Related entity ID
+    isRead: Boolean @default(false)
+    readAt: DateTime?
+    createdAt: DateTime
+  }
+  ```
+
+**Notification Types to Implement:**
+- **Task Notifications**: Assignment, status changes, due date reminders
+- **Project Notifications**: Project updates, new members, status changes
+- **Meeting Notifications**: Meeting reminders, agenda updates, action items
+- **Comment Notifications**: @mentions, replies to comments
+
+**Frontend Implementation:**
+- **Notification Center**: Dropdown with unread notifications
+- **Real-time Notifications**: Toast notifications for immediate alerts
+- **Email Integration**: Backend service for email notifications
+
+**4. Team Collaboration Tools**
+
+**Features to Implement:**
+- **Enhanced @Mentions**: Tag users in comments with notifications
+- **Activity Feeds**: Real-time activity streams for projects
+- **User Presence**: Show who's online and working on what
+- **Quick Chat**: Basic messaging for urgent communication
+
+**Implementation Priority:**
+1. **Week 1**: Real-time updates (Socket.IO) + Basic notifications
+2. **Week 2**: Meeting management system + Enhanced notifications
+3. **Week 3**: Team collaboration tools + @mentions
+4. **Week 4**: Polish, testing, and integration
+
+**Technology Stack Additions:**
+- **Backend**: Socket.IO, Nodemailer (email), node-cron (scheduling)
+- **Frontend**: Socket.IO client, React Query for real-time sync
+- **Infrastructure**: Redis (optional, for Socket.IO scaling)
 
 ### Phase 7: Time Tracking (Weeks 13-14)
 - [ ] Time entry and tracking

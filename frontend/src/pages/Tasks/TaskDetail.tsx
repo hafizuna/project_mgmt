@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, User, Calendar, Clock, Tag, CheckSquare, UserX } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Calendar, Clock, Tag, CheckSquare, UserX, MessageSquare, Activity } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
 import { tasksApi, Task, TaskStatus } from '../../lib/api/tasks';
 import { projectsApi } from '../../lib/api/projects';
 import { useAuthStore } from '../../lib/stores/auth';
+import { TaskComments } from '../../components/TaskComments';
+import { TaskHistory } from '../../components/TaskHistory';
 
 const statusColors = {
   TODO: 'bg-gray-100 text-gray-800',
@@ -403,6 +406,35 @@ export default function TaskDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Comments and History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity & Comments</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="comments" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="comments" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Comments
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Activity
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="comments" className="mt-6">
+              <TaskComments taskId={task.id} />
+            </TabsContent>
+            
+            <TabsContent value="activity" className="mt-6">
+              <TaskHistory taskId={task.id} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }

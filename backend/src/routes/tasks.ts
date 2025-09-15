@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PrismaClient, Role, TaskStatus, TaskPriority, ProjectMemberRole } from '@prisma/client'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
+import { TaskHistoryLogger } from '../utils/taskHistory.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -441,6 +442,9 @@ router.post('/projects/:projectId/tasks', authenticate, async (req: Request, res
       }
     )
 
+    // Add to task history
+    await TaskHistoryLogger.logTaskCreation(task.id, userId)
+
     const transformedTask = transformTaskForFrontend(task)
     res.status(201).json({ task: transformedTask })
   } catch (error) {
@@ -531,7 +535,17 @@ router.put('/tasks/:id', authenticate, async (req: Request, res: Response) => {
       },
     })
 
-    // Log specific changes
+    // Track changes in task history
+    for (const [field, newValue] of Object.entries(updates)) {
+      const oldValue = (existingTask as any)[field]
+      
+      // Only log if the value actually changed
+      if (oldValue !== newValue) {
+        await TaskHistoryLogger.logFieldChange(id, userId, field, oldValue, newValue)
+      }
+    }
+
+    // Keep existing audit logging for compliance
     if (updates.status && updates.status !== existingTask.status) {
       await AuditLogger.logTaskAction(
         req,
