@@ -54,6 +54,10 @@ async function seed() {
         name: 'Sample Project',
         description: 'A sample project to get started',
         status: 'Active',
+        priority: 'Medium',
+        budget: 50000,
+        startDate: new Date(),
+        dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
         orgId: org.id,
         ownerId: admin.id,
       }

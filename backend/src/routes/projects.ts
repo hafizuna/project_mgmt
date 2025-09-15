@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, Role, ProjectStatus, ProjectMemberRole } from '@prisma/client'
+import { PrismaClient, Role, ProjectStatus, ProjectPriority, ProjectMemberRole } from '@prisma/client'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 
@@ -12,8 +12,10 @@ const createProjectSchema = z.object({
   name: z.string().min(2, 'Project name must be at least 2 characters'),
   description: z.string().optional(),
   status: z.nativeEnum(ProjectStatus).optional(),
+  priority: z.nativeEnum(ProjectPriority).optional(),
   startDate: z.string().datetime().optional(),
   dueDate: z.string().datetime().optional(),
+  budget: z.number().min(0, 'Budget must be positive').optional(),
   settings: z.record(z.any()).optional(),
 })
 
@@ -21,8 +23,10 @@ const updateProjectSchema = z.object({
   name: z.string().min(2, 'Project name must be at least 2 characters').optional(),
   description: z.string().optional(),
   status: z.nativeEnum(ProjectStatus).optional(),
+  priority: z.nativeEnum(ProjectPriority).optional(),
   startDate: z.string().datetime().optional(),
   dueDate: z.string().datetime().optional(),
+  budget: z.number().min(0, 'Budget must be positive').optional(),
   settings: z.record(z.any()).optional(),
 })
 
@@ -31,6 +35,7 @@ const querySchema = z.object({
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10),
   search: z.string().optional(),
   status: z.nativeEnum(ProjectStatus).optional(),
+  priority: z.nativeEnum(ProjectPriority).optional(),
   ownerId: z.string().optional(),
 })
 
@@ -42,6 +47,50 @@ const addMemberSchema = z.object({
 const updateMemberSchema = z.object({
   role: z.nativeEnum(ProjectMemberRole),
 })
+
+// Transform functions for frontend compatibility
+const mapProjectStatusToFrontend = (status: ProjectStatus): string => {
+  const statusMap = {
+    [ProjectStatus.Active]: 'IN_PROGRESS',
+    [ProjectStatus.Completed]: 'COMPLETED', 
+    [ProjectStatus.Archived]: 'CANCELLED',
+    [ProjectStatus.OnHold]: 'ON_HOLD'
+  }
+  return statusMap[status] || status
+}
+
+const mapProjectPriorityToFrontend = (priority: ProjectPriority): string => {
+  return priority.toUpperCase()
+}
+
+const transformProjectForFrontend = (project: any) => ({
+  ...project,
+  status: mapProjectStatusToFrontend(project.status),
+  priority: mapProjectPriorityToFrontend(project.priority),
+  endDate: project.dueDate, // Map dueDate to endDate for frontend
+})
+
+// Reverse transformation for frontend to backend
+const mapFrontendStatusToBackend = (status: string): ProjectStatus => {
+  const statusMap: Record<string, ProjectStatus> = {
+    'PLANNING': ProjectStatus.Active,
+    'IN_PROGRESS': ProjectStatus.Active, 
+    'ON_HOLD': ProjectStatus.OnHold,
+    'COMPLETED': ProjectStatus.Completed,
+    'CANCELLED': ProjectStatus.Archived
+  }
+  return statusMap[status] || ProjectStatus.Active
+}
+
+const mapFrontendPriorityToBackend = (priority: string): ProjectPriority => {
+  const priorityMap: Record<string, ProjectPriority> = {
+    'LOW': ProjectPriority.Low,
+    'MEDIUM': ProjectPriority.Medium,
+    'HIGH': ProjectPriority.High,
+    'CRITICAL': ProjectPriority.Critical
+  }
+  return priorityMap[priority] || ProjectPriority.Medium
+}
 
 // Helper function to check if user has access to project
 async function checkProjectAccess(
@@ -106,7 +155,7 @@ async function checkProjectAccess(
  */
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
-    const { page, limit, search, status, ownerId } = querySchema.parse(req.query)
+    const { page, limit, search, status, priority, ownerId } = querySchema.parse(req.query)
     const skip = (page - 1) * limit
 
     // Build where clause based on user role
@@ -152,6 +201,10 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
       where.status = status
     }
 
+    if (priority) {
+      where.priority = priority
+    }
+
     if (ownerId) {
       where.ownerId = ownerId
     }
@@ -165,8 +218,10 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
           name: true,
           description: true,
           status: true,
+          priority: true,
           startDate: true,
           dueDate: true,
+          budget: true,
           createdAt: true,
           updatedAt: true,
           owner: {
@@ -207,8 +262,11 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
     const totalPages = Math.ceil(totalCount / limit)
 
+    // Transform projects for frontend compatibility
+    const transformedProjects = projects.map(transformProjectForFrontend)
+
     res.json({
-      projects,
+      projects: transformedProjects,
       pagination: {
         page,
         limit,
@@ -305,7 +363,8 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Project not found' })
     }
 
-    res.json({ project })
+    const transformedProject = transformProjectForFrontend(project)
+    res.json({ project: transformedProject })
   } catch (error) {
     console.error('Get project error:', error)
     res.status(500).json({ error: 'Internal server error' })
@@ -359,7 +418,8 @@ router.post('/', authenticate, requireRole(['Admin', 'Manager']), async (req: Re
       { projectName: project.name, projectStatus: project.status }
     )
 
-    res.status(201).json({ project })
+    const transformedProject = transformProjectForFrontend(project)
+    res.status(201).json({ project: transformedProject })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors })
@@ -446,7 +506,8 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
       )
     }
 
-    res.json({ project })
+    const transformedProject = transformProjectForFrontend(project)
+    res.json({ project: transformedProject })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors })

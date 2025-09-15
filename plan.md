@@ -1,4 +1,4 @@
-# CollabSync HQ - Project Management & Team Collaboration Platform
+# ICos PgMgmt - Project Management & Team Collaboration Platform
 
 ## Overview
 A comprehensive project management and team collaboration platform built with a React (Vite) frontend and a Node.js backend, designed for deployment on a single Ubuntu server without external services like S3 or Redis.

@@ -9,11 +9,18 @@ export interface Project {
   startDate?: string;
   endDate?: string;
   budget?: number;
-  orgId: string;
+  orgId?: string;
+  ownerId?: string;
+  owner?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+  };
   createdAt: string;
   updatedAt: string;
-  createdBy: string;
   members?: ProjectMember[];
+  tasks?: any[];
   _count?: {
     members: number;
     tasks: number;
@@ -29,7 +36,10 @@ export interface ProjectMember {
   user: {
     id: string;
     email: string;
-    name?: string;
+    name: string;
+    avatar?: string;
+    role: string;
+    isActive: boolean;
   };
 }
 
@@ -49,9 +59,9 @@ export enum ProjectPriority {
 }
 
 export enum ProjectRole {
-  LEAD = 'LEAD',
-  MEMBER = 'MEMBER',
-  VIEWER = 'VIEWER'
+  Owner = 'Owner',
+  Manager = 'Manager', 
+  Member = 'Member'
 }
 
 export interface CreateProjectRequest {
@@ -108,25 +118,25 @@ export const projectsApi = {
     });
 
     const response = await apiClient.get(`/projects?${params.toString()}`);
-    return response.data;
+    return response;
   },
 
   // Get single project by ID
   getProject: async (id: string): Promise<Project> => {
     const response = await apiClient.get(`/projects/${id}`);
-    return response.data;
+    return response.project;
   },
 
   // Create new project
   createProject: async (data: CreateProjectRequest): Promise<Project> => {
     const response = await apiClient.post('/projects', data);
-    return response.data;
+    return response.project;
   },
 
   // Update project
   updateProject: async (id: string, data: UpdateProjectRequest): Promise<Project> => {
     const response = await apiClient.put(`/projects/${id}`, data);
-    return response.data;
+    return response.project;
   },
 
   // Delete project
@@ -137,17 +147,17 @@ export const projectsApi = {
   // Project member management
   getProjectMembers: async (projectId: string): Promise<ProjectMember[]> => {
     const response = await apiClient.get(`/projects/${projectId}/members`);
-    return response.data;
+    return response.members;
   },
 
   addProjectMember: async (projectId: string, data: AddMemberRequest): Promise<ProjectMember> => {
     const response = await apiClient.post(`/projects/${projectId}/members`, data);
-    return response.data;
+    return response.member;
   },
 
   updateProjectMember: async (projectId: string, userId: string, data: UpdateMemberRequest): Promise<ProjectMember> => {
     const response = await apiClient.put(`/projects/${projectId}/members/${userId}`, data);
-    return response.data;
+    return response.member;
   },
 
   removeProjectMember: async (projectId: string, userId: string): Promise<void> => {

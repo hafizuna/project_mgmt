@@ -7,6 +7,120 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Organization {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  settings  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  auditLogs AuditLog[]
+  projects  Project[]
+  users     User[]
+}
+
+model User {
+  id            String          @id @default(uuid())
+  orgId         String
+  email         String          @unique
+  name          String
+  password      String
+  avatar        String?
+  role          Role
+  isActive      Boolean         @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  auditLogs     AuditLog[]
+  projects      Project[]       @relation("ProjectOwner")
+  memberships   ProjectMember[]
+  assignedTasks Task[]          @relation("TaskAssignee")
+  reportedTasks Task[]          @relation("TaskReporter")
+  org           Organization    @relation(fields: [orgId], references: [id])
+  sessions      UserSession[]
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Project {
+  id          String          @id @default(uuid())
+  orgId       String
+  ownerId     String
+  name        String
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  settings    Json?
+  status      ProjectStatus   @default(Active)
+  budget      Float?
+  priority    ProjectPriority @default(Medium)
+  org         Organization    @relation(fields: [orgId], references: [id])
+  owner       User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members     ProjectMember[]
+  tasks       Task[]
+}
+
+model ProjectMember {
+  id        String            @id @default(uuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime          @default(now())
+  role      ProjectMemberRole @default(Member)
+  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  projectId   String
+  title       String
+  description String?
+  assigneeId  String?
+  reporterId  String
+  estimate    Float?
+  dueDate     DateTime?
+  labels      String[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  position    Int?
+  status      TaskStatus   @default(Todo)
+  priority    TaskPriority @default(Medium)
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter    User         @relation("TaskReporter", fields: [reporterId], references: [id])
+}
+
+model AuditLog {
+  id         String       @id @default(uuid())
+  orgId      String
+  userId     String
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime     @default(now())
+  org        Organization @relation(fields: [orgId], references: [id])
+  user       User         @relation(fields: [userId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
 enum Role {
   Admin
   Manager
@@ -18,6 +132,13 @@ enum ProjectStatus {
   Completed
   Archived
   OnHold
+}
+
+enum ProjectPriority {
+  Low
+  Medium
+  High
+  Critical
 }
 
 enum ProjectMemberRole {
@@ -39,116 +160,3 @@ enum TaskPriority {
   High
   Critical
 }
-
-model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  settings  Json?
-  users     User[]
-  projects  Project[]
-  auditLogs AuditLog[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model User {
-  id          String   @id @default(uuid())
-  orgId       String
-  org         Organization @relation(fields: [orgId], references: [id])
-  email       String   @unique
-  name        String
-  password    String
-  avatar      String?
-  role        Role
-  isActive    Boolean  @default(true)
-  lastLoginAt DateTime?
-  sessions    UserSession[]
-  projects    Project[] @relation("ProjectOwner")
-  memberships ProjectMember[]
-  assignedTasks Task[] @relation("TaskAssignee")
-  reportedTasks Task[] @relation("TaskReporter")
-  auditLogs   AuditLog[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model UserSession {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  refreshToken String   @unique
-  deviceInfo   Json?
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-}
-
-model Project {
-  id          String        @id @default(uuid())
-  orgId       String
-  org         Organization  @relation(fields: [orgId], references: [id])
-  ownerId     String
-  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
-  name        String
-  description String?
-  status      ProjectStatus @default(Active)
-  startDate   DateTime?
-  dueDate     DateTime?
-  settings    Json?         // For project-specific settings
-  members     ProjectMember[]
-  tasks       Task[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model ProjectMember {
-  id        String            @id @default(uuid())
-  projectId String
-  userId    String
-  role      ProjectMemberRole @default(Member)
-  project   Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User              @relation(fields: [userId], references: [id])
-  joinedAt  DateTime          @default(now())
-
-  @@unique([projectId, userId])
-}
-
-model Task {
-  id          String       @id @default(uuid())
-  projectId   String
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  status      TaskStatus   @default(Todo)
-  priority    TaskPriority @default(Medium)
-  assigneeId  String?
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  reporterId  String
-  reporter    User         @relation("TaskReporter", fields: [reporterId], references: [id])
-  estimate    Float?
-  dueDate     DateTime?
-  labels      String[]
-  position    Int?         // For ordering tasks
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model AuditLog {
-  id         String   @id @default(uuid())
-  orgId      String
-  org        Organization @relation(fields: [orgId], references: [id])
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  action     String
-  entityType String
-  entityId   String?
-  metadata   Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-
-  @@index([orgId, createdAt])
-  @@index([userId, createdAt])
-  @@index([entityType, entityId])
-}
-

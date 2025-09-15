@@ -11,6 +11,7 @@ import UserManagement from "./pages/Admin/UserManagement";
 import OrganizationSettings from "./pages/Admin/OrganizationSettings";
 import AuditLogs from "./pages/Admin/AuditLogs";
 import { ProjectsList, ProjectDetail, ProjectForm } from "./pages/Projects";
+import { TasksList, TaskForm, TaskDetail as TaskDetailPage } from "./pages/Tasks";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,12 @@ const App = () => (
             <Route path="projects/new" element={<ProjectForm />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
             <Route path="projects/:id/edit" element={<ProjectForm />} />
+            
+            {/* Tasks Routes */}
+            <Route path="tasks" element={<TasksList />} />
+            <Route path="tasks/new" element={<TaskForm />} />
+            <Route path="tasks/:id" element={<TaskDetailPage />} />
+            <Route path="tasks/:id/edit" element={<TaskForm />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           </Route>

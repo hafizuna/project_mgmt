@@ -10,6 +10,7 @@ import { usersRouter } from './routes/users.js'
 import { organizationRouter } from './routes/organization.js'
 import { auditLogsRouter } from './routes/auditLogs.js'
 import { projectsRouter } from './routes/projects.js'
+import { tasksRouter } from './routes/tasks.js'
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -41,6 +42,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/organization', organizationRouter)
 app.use('/api/audit-logs', auditLogsRouter)
 app.use('/api/projects', projectsRouter)
+app.use('/api', tasksRouter)
 
 // Root
 app.get('/api', (_req, res) => {

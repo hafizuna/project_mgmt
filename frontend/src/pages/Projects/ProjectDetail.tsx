@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Users, Calendar, DollarSign, UserPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Users, Calendar, DollarSign, UserPlus, Trash2, CheckSquare, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -17,6 +17,7 @@ import {
   ProjectPriority, 
   ProjectRole 
 } from '../../lib/api/projects';
+import { tasksApi, Task, TaskStatus, TaskPriority } from '../../lib/api/tasks';
 import { usersApi } from '../../lib/api/users';
 import { useAuthStore } from '../../lib/stores/auth';
 
@@ -36,9 +37,23 @@ const priorityColors = {
 };
 
 const roleColors = {
-  LEAD: 'bg-purple-100 text-purple-800',
-  MEMBER: 'bg-blue-100 text-blue-800',
-  VIEWER: 'bg-gray-100 text-gray-800'
+  Owner: 'bg-purple-100 text-purple-800',
+  Manager: 'bg-blue-100 text-blue-800', 
+  Member: 'bg-gray-100 text-gray-800'
+};
+
+const taskStatusColors = {
+  TODO: 'bg-gray-100 text-gray-800',
+  IN_PROGRESS: 'bg-blue-100 text-blue-800',
+  REVIEW: 'bg-yellow-100 text-yellow-800',
+  DONE: 'bg-green-100 text-green-800'
+};
+
+const taskPriorityColors = {
+  LOW: 'bg-gray-100 text-gray-800',
+  MEDIUM: 'bg-blue-100 text-blue-800',
+  HIGH: 'bg-orange-100 text-orange-800',
+  CRITICAL: 'bg-red-100 text-red-800'
 };
 
 export default function ProjectDetail() {
@@ -48,11 +63,13 @@ export default function ProjectDetail() {
   
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedRole, setSelectedRole] = useState<ProjectRole>(ProjectRole.MEMBER);
+  const [selectedRole, setSelectedRole] = useState<ProjectRole>(ProjectRole.Member);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   const fetchProject = async () => {
@@ -73,6 +90,20 @@ export default function ProjectDetail() {
     }
   };
 
+  const fetchTasks = async () => {
+    if (!id) return;
+    
+    try {
+      setTasksLoading(true);
+      const response = await tasksApi.getProjectTasks(id, { limit: 20 });
+      setTasks(response.tasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
   const fetchAvailableUsers = async () => {
     try {
       const response = await usersApi.getUsers({ limit: 100 }); // Get all users
@@ -86,6 +117,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     fetchProject();
+    fetchTasks();
   }, [id]);
 
   useEffect(() => {
@@ -106,7 +138,7 @@ export default function ProjectDetail() {
       toast.success('Member added successfully');
       setShowAddMember(false);
       setSelectedUserId('');
-      setSelectedRole(ProjectRole.MEMBER);
+      setSelectedRole(ProjectRole.Member);
       fetchProject(); // Refresh data
     } catch (error) {
       toast.error('Failed to add member');
@@ -143,7 +175,7 @@ export default function ProjectDetail() {
 
   const canManageProject = user?.role === 'Admin' || user?.role === 'Manager';
   const userMember = members.find(m => m.userId === user?.id);
-  const canManageMembers = canManageProject || userMember?.role === ProjectRole.LEAD;
+  const canManageMembers = canManageProject || userMember?.role === ProjectRole.Owner || userMember?.role === ProjectRole.Manager;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -275,6 +307,120 @@ export default function ProjectDetail() {
                 <p>Created: {formatDate(project.createdAt)}</p>
                 <p>Last updated: {formatDate(project.updatedAt)}</p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Tasks Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckSquare className="w-5 h-5" />
+                  Project Tasks ({tasks.length})
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/tasks?project=${project.id}`)}
+                  >
+                    View All Tasks
+                  </Button>
+                  {canManageProject && (
+                    <Button 
+                      size="sm"
+                      onClick={() => navigate(`/tasks/new?project=${project.id}`)}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Task
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {tasksLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-16 bg-gray-100 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-2">No tasks yet</p>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Create your first task to get started
+                  </p>
+                  {canManageProject && (
+                    <Button 
+                      onClick={() => navigate(`/tasks/new?project=${project.id}`)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create First Task
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.slice(0, 5).map((task) => (
+                    <div 
+                      key={task.id} 
+                      className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate(`/tasks/${task.id}`)}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className={taskStatusColors[task.status]}>
+                            {task.status.replace('_', ' ')}
+                          </Badge>
+                          <Badge variant="outline" className={taskPriorityColors[task.priority]}>
+                            {task.priority}
+                          </Badge>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{task.title}</h4>
+                          {task.description && (
+                            <p className="text-xs text-gray-500 mt-1 overflow-hidden">
+                              {task.description.length > 100 ? task.description.substring(0, 100) + '...' : task.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {task.assignee && (
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={`https://avatar.vercel.sh/${task.assignee.email}`} />
+                            <AvatarFallback className="text-xs">
+                              {getInitials(task.assignee.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        {task.dueDate && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <Calendar className="w-3 h-3" />
+                            <span>{formatDate(task.dueDate)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {tasks.length > 5 && (
+                    <div className="text-center pt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => navigate(`/tasks?project=${project.id}`)}
+                      >
+                        View {tasks.length - 5} more tasks
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
