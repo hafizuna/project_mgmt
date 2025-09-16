@@ -1,5 +1,11 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
 
+// Debug environment variables
+console.log('🔧 API Client Debug:')
+console.log('Environment Mode:', import.meta.env.MODE)
+console.log('VITE_API_URL:', import.meta.env.VITE_API_URL)
+console.log('Final API_BASE_URL:', API_BASE_URL)
+
 function getAccessToken(): string | null {
   try {
     const raw = localStorage.getItem('auth-store')

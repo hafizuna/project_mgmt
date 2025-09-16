@@ -17,6 +17,7 @@ model Organization {
   auditLogs AuditLog[]
   projects  Project[]
   users     User[]
+  meetings  Meeting[]
 }
 
 model User {
@@ -36,10 +37,13 @@ model User {
   memberships   ProjectMember[]
   assignedTasks Task[]          @relation("TaskAssignee")
   reportedTasks Task[]          @relation("TaskReporter")
-  taskComments  TaskComment[]
-  taskHistory   TaskHistory[]
-  org           Organization    @relation(fields: [orgId], references: [id])
-  sessions      UserSession[]
+  taskComments     TaskComment[]
+  taskHistory      TaskHistory[]
+  createdMeetings  Meeting[]          @relation("MeetingCreator")
+  meetingAttendees MeetingAttendee[]
+  actionItems      MeetingActionItem[]
+  org              Organization       @relation(fields: [orgId], references: [id])
+  sessions         UserSession[]
 }
 
 model UserSession {
@@ -70,6 +74,8 @@ model Project {
   owner       User            @relation("ProjectOwner", fields: [ownerId], references: [id])
   members     ProjectMember[]
   tasks       Task[]
+  meetings    Meeting[]
+  actionItems MeetingActionItem[]
 }
 
 model ProjectMember {
@@ -100,10 +106,11 @@ model Task {
   status      TaskStatus    @default(Todo)
   priority    TaskPriority  @default(Medium)
   assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  reporter    User          @relation("TaskReporter", fields: [reporterId], references: [id])
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter    User                @relation("TaskReporter", fields: [reporterId], references: [id])
   comments    TaskComment[]
   history     TaskHistory[]
+  actionItems MeetingActionItem[]
 }
 
 model AuditLog {
@@ -204,4 +211,101 @@ enum TaskHistoryAction {
   PRIORITY_CHANGED
   DESCRIPTION_CHANGED
   TITLE_CHANGED
+}
+
+model Meeting {
+  id          String        @id @default(uuid())
+  orgId       String
+  projectId   String?       // Optional: project-specific meeting
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  
+  // Meeting Type and Location
+  type        MeetingType   @default(Online)
+  location    String?       // Physical location for in-person meetings
+  meetingLink String?       // Video conference URL for online meetings
+  videoRoom   String?       // Generated video room ID for embedded video
+  
+  // Meeting Content
+  agenda      Json?         // Structured agenda items
+  notes       String?       // Meeting notes
+  recording   String?       // Recording URL/path if available
+  
+  // Status and Metadata
+  status      MeetingStatus @default(Scheduled)
+  actualStartTime DateTime? // When meeting actually started
+  actualEndTime   DateTime? // When meeting actually ended
+  
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  org         Organization     @relation(fields: [orgId], references: [id])
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("MeetingCreator", fields: [createdById], references: [id])
+  attendees   MeetingAttendee[]
+  actionItems MeetingActionItem[]
+}
+
+model MeetingAttendee {
+  id               String         @id @default(uuid())
+  meetingId        String
+  userId           String
+  isRequired       Boolean        @default(true)
+  status           AttendeeStatus @default(Pending)
+  respondedAt      DateTime?
+  actuallyAttended Boolean?       // Did they actually attend
+  
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+  
+  @@unique([meetingId, userId])
+}
+
+model MeetingActionItem {
+  id          String            @id @default(uuid())
+  meetingId   String
+  description String
+  assigneeId  String?
+  dueDate     DateTime?
+  status      ActionItemStatus  @default(Open)
+  taskId      String?           // Link to created task
+  projectId   String?           // Which project this relates to
+  createdAt   DateTime          @default(now())
+  
+  // Relations
+  meeting  Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  assignee User?    @relation(fields: [assigneeId], references: [id])
+  task     Task?    @relation(fields: [taskId], references: [id])
+  project  Project? @relation(fields: [projectId], references: [id])
+}
+
+enum MeetingType {
+  Online      // Video conference (Jitsi, Zoom, etc.)
+  InPerson    // Physical meeting room
+  Hybrid      // Both online and in-person attendees
+}
+
+enum MeetingStatus {
+  Scheduled
+  InProgress
+  Completed
+  Cancelled
+}
+
+enum AttendeeStatus {
+  Pending
+  Accepted
+  Declined
+  Tentative
+}
+
+enum ActionItemStatus {
+  Open
+  InProgress
+  Completed
 }

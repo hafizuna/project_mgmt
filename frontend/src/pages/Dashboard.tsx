@@ -3,8 +3,11 @@ import { TasksOverview } from "@/components/dashboard/TasksOverview";
 import { ProjectProgress } from "@/components/dashboard/ProjectProgress";
 import { CheckSquare, FolderKanban, Users, Clock, TrendingUp, Calendar, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -79,7 +82,10 @@ export default function Dashboard() {
                   </div>
                 </button>
                 
-                <button className="flex items-center gap-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left">
+                <button 
+                  className="flex items-center gap-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors text-left"
+                  onClick={() => navigate('/meetings/new')}
+                >
                   <div className="h-10 w-10 rounded-lg bg-success flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-success-foreground" />
                   </div>
