@@ -15,9 +15,14 @@ model Organization {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   auditLogs AuditLog[]
-  projects  Project[]
-  users     User[]
-  meetings  Meeting[]
+  projects        Project[]
+  users           User[]
+  meetings        Meeting[]
+  reportTemplates ReportTemplate[]
+  weeklyPlans     WeeklyPlan[]
+  weeklyReports   WeeklyReport[]
+  reportReminders ReportReminder[]
+  reportSettings  ReportSettings?
 }
 
 model User {
@@ -42,6 +47,10 @@ model User {
   createdMeetings  Meeting[]          @relation("MeetingCreator")
   meetingAttendees MeetingAttendee[]
   actionItems      MeetingActionItem[]
+  weeklyPlans      WeeklyPlan[]
+  weeklyReports    WeeklyReport[]
+  reportComments   ReportComment[]
+  reportReminders  ReportReminder[]
   org              Organization       @relation(fields: [orgId], references: [id])
   sessions         UserSession[]
 }
@@ -308,4 +317,202 @@ enum ActionItemStatus {
   Open
   InProgress
   Completed
+}
+
+// Weekly Reporting System Models
+model ReportTemplate {
+  id          String     @id @default(uuid())
+  orgId       String
+  name        String     // "Weekly Plan", "Weekly Report", etc.
+  description String?
+  type        ReportType
+  sections    Json       // Dynamic sections configuration
+  isActive    Boolean    @default(true)
+  isDefault   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  org           Organization @relation(fields: [orgId], references: [id])
+  weeklyPlans   WeeklyPlan[]
+  weeklyReports WeeklyReport[]
+  
+  @@index([orgId, type])
+}
+
+model WeeklyPlan {
+  id           String         @id @default(uuid())
+  userId       String
+  orgId        String
+  templateId   String?
+  weekStart    DateTime       // Monday of the week
+  weekEnd      DateTime       // Sunday of the week
+  
+  // Plan Content
+  goals        Json           // Array of weekly goals
+  priorities   Json           // Priority tasks for the week
+  timeAllocation Json         // Estimated time distribution
+  focusAreas   Json           // Key focus areas
+  blockers     Json?          // Anticipated blockers
+  
+  // Submission Status
+  status       SubmissionStatus @default(Draft)
+  submittedAt  DateTime?
+  isOverdue    Boolean        @default(false)
+  
+  // Metadata
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  // Relations
+  user         User           @relation(fields: [userId], references: [id])
+  org          Organization   @relation(fields: [orgId], references: [id])
+  template     ReportTemplate? @relation(fields: [templateId], references: [id])
+  weeklyReport WeeklyReport?
+  comments     ReportComment[]
+  
+  @@unique([userId, weekStart])
+  @@index([orgId, weekStart])
+  @@index([userId, status])
+}
+
+model WeeklyReport {
+  id               String         @id @default(uuid())
+  userId           String
+  orgId            String
+  templateId       String?
+  weeklyPlanId     String         @unique
+  weekStart        DateTime       // Monday of the week
+  weekEnd          DateTime       // Sunday of the week
+  
+  // Report Content
+  achievements     Json           // What was accomplished
+  goalsProgress    Json           // Progress on planned goals
+  actualTimeSpent  Json           // Actual time allocation
+  blockers         Json?          // Encountered blockers
+  support          Json?          // Support needed
+  learnings        Json?          // Key learnings
+  nextWeekPrep     Json?          // Next week preparation
+  
+  // Metrics
+  productivityScore Float?        // Self-assessed productivity (1-10)
+  satisfactionScore Float?        // Job satisfaction score (1-10)
+  stressLevel       StressLevel?  // Stress level indicator
+  
+  // Submission Status
+  status           SubmissionStatus @default(Draft)
+  submittedAt      DateTime?
+  isOverdue        Boolean        @default(false)
+  reviewedBy       String?        // Admin/Manager who reviewed
+  reviewedAt       DateTime?
+  reviewNotes      String?
+  
+  // Metadata
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  
+  // Relations
+  user             User           @relation(fields: [userId], references: [id])
+  org              Organization   @relation(fields: [orgId], references: [id])
+  template         ReportTemplate? @relation(fields: [templateId], references: [id])
+  weeklyPlan       WeeklyPlan     @relation(fields: [weeklyPlanId], references: [id], onDelete: Cascade)
+  comments         ReportComment[]
+  
+  @@index([orgId, weekStart])
+  @@index([userId, status])
+  @@index([reviewedBy, reviewedAt])
+}
+
+model ReportComment {
+  id          String     @id @default(uuid())
+  content     String
+  authorId    String
+  planId      String?
+  reportId    String?
+  parentId    String?    // For threaded replies
+  isInternal  Boolean    @default(false) // Admin/Manager only comments
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  author       User            @relation(fields: [authorId], references: [id])
+  plan         WeeklyPlan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  report       WeeklyReport?   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  parent       ReportComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies      ReportComment[] @relation("CommentReplies")
+}
+
+model ReportReminder {
+  id          String       @id @default(uuid())
+  userId      String
+  orgId       String
+  type        ReportType
+  weekStart   DateTime
+  reminderType ReminderType
+  sentAt      DateTime
+  isRead      Boolean      @default(false)
+  
+  // Relations
+  user        User         @relation(fields: [userId], references: [id])
+  org         Organization @relation(fields: [orgId], references: [id])
+  
+  @@index([userId, weekStart, type])
+}
+
+model ReportSettings {
+  id                String   @id @default(uuid())
+  orgId            String   @unique
+  
+  // Plan Settings
+  planDueDay       Int      @default(1) // Monday = 1
+  planDueTime      String   @default("10:00") // 10:00 AM
+  planReminderDays Int[]    @default([0, 1]) // Sunday, Monday
+  
+  // Report Settings
+  reportDueDay     Int      @default(5) // Friday = 5
+  reportDueTime    String   @default("17:00") // 5:00 PM
+  reportReminderDays Int[]  @default([3, 4, 5]) // Wed, Thu, Fri
+  
+  // Enforcement
+  isEnforced       Boolean  @default(true)
+  gracePeriodHours Int      @default(24)
+  
+  // Notifications
+  emailNotifications    Boolean @default(true)
+  inAppNotifications    Boolean @default(true)
+  managerNotifications  Boolean @default(true)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  org              Organization @relation(fields: [orgId], references: [id])
+}
+
+enum ReportType {
+  WeeklyPlan
+  WeeklyReport
+}
+
+enum SubmissionStatus {
+  Draft
+  Submitted
+  UnderReview
+  Approved
+  NeedsRevision
+  Overdue
+}
+
+enum StressLevel {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum ReminderType {
+  Initial
+  FirstReminder
+  FinalReminder
+  Overdue
 }

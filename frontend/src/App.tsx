@@ -16,6 +16,7 @@ import Meetings from "./pages/Meetings";
 import CreateMeeting from "./pages/CreateMeeting";
 import MeetingDetail from "./pages/MeetingDetail";
 import EditMeeting from "./pages/EditMeeting";
+import Reports from "./pages/Reports/Reports";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,9 @@ const App = () => (
             <Route path="meetings/new" element={<CreateMeeting />} />
             <Route path="meetings/:id" element={<MeetingDetail />} />
             <Route path="meetings/:id/edit" element={<EditMeeting />} />
+            
+            {/* Reports Routes */}
+            <Route path="reports" element={<Reports />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           </Route>

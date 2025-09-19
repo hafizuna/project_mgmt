@@ -184,6 +184,19 @@ export const AUDIT_ACTIONS = {
   // Organization actions
   ORG_SETTINGS_UPDATED: 'org.settings_updated',
   ORG_UPDATED: 'org.updated',
+  
+  // Weekly Reporting actions
+  WEEKLY_PLAN_CREATED: 'weekly_plan.created',
+  WEEKLY_PLAN_UPDATED: 'weekly_plan.updated',
+  WEEKLY_PLAN_SUBMITTED: 'weekly_plan.submitted',
+  WEEKLY_REPORT_CREATED: 'weekly_report.created',
+  WEEKLY_REPORT_UPDATED: 'weekly_report.updated',
+  WEEKLY_REPORT_SUBMITTED: 'weekly_report.submitted',
+  
+  // Generic actions
+  CREATE: 'created',
+  UPDATE: 'updated',
+  DELETE: 'deleted',
 } as const;
 
 export type AuditAction = typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS];

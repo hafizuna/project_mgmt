@@ -16,6 +16,7 @@ import { meetingsRouter } from './routes/meetings.js'
 import { meetingAttendeesRouter } from './routes/meetingAttendees.js'
 import { actionItemsRouter } from './routes/actionItems.js'
 import { dashboardRouter } from './routes/dashboard.js'
+import weeklyReportsRouter from './routes/weeklyReports.js'
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -60,6 +61,7 @@ app.use('/api', meetingsRouter)
 app.use('/api', meetingAttendeesRouter)
 app.use('/api', actionItemsRouter)
 app.use('/api/dashboard', dashboardRouter)
+app.use('/api/reports', weeklyReportsRouter)
 
 // Root
 app.get('/api', (_req, res) => {
