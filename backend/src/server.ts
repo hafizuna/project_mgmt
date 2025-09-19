@@ -35,16 +35,14 @@ app.use(helmet())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
-// CORS configuration - allow external access for testing
+// CORS configuration
 const corsOrigins = ENV.CORS_ORIGINS ? 
   ENV.CORS_ORIGINS.split(',').map(s => s.trim()) : 
-  true // Allow all origins for development
+  ['http://localhost:3000', 'http://localhost:5173']
 
 app.use(cors({ 
   origin: corsOrigins, 
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  credentials: true 
 }))
 app.use(morgan(ENV.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
@@ -68,10 +66,7 @@ app.get('/api', (_req, res) => {
 
 const port = parseInt(ENV.PORT, 10)
 
-// Listen on all interfaces to allow external connections
-app.listen(port, '0.0.0.0', () => {
-  console.log(`API listening on http://0.0.0.0:${port}`)
-  console.log(`External access: http://[YOUR_IP]:${port}`)
-  console.log('For external testing, use your computer\'s IP address')
+app.listen(port, () => {
+  console.log(`API listening on http://localhost:${port}`)
 })
 
