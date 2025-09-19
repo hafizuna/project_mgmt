@@ -21,6 +21,12 @@ async function request(method: string, path: string, body?: any) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
+  
+  // Add cache-busting for dashboard endpoints to get fresh data
+  if (path.includes('/dashboard')) {
+    headers['Cache-Control'] = 'no-cache'
+  }
+  
   const token = getAccessToken()
   if (token) headers['Authorization'] = `Bearer ${token}`
 
@@ -47,9 +53,26 @@ async function request(method: string, path: string, body?: any) {
   
   // Handle 304 Not Modified responses
   if (res.status === 304) {
-    console.log('Got 304 Not Modified, returning fallback data');
+    console.log('Got 304 Not Modified, trying to get response body or fallback data');
+    // Try to get cached response body first
+    try {
+      const data = await res.json()
+      if (data && Object.keys(data).length > 0) {
+        return data
+      }
+    } catch {
+      // Fallback if no body
+    }
+    
+    // Return appropriate fallback data
     if (path.includes('/audit-logs')) {
       return { auditLogs: [], pagination: { page: 1, limit: 50, totalCount: 0, totalPages: 0, hasNext: false, hasPrev: false } }
+    }
+    if (path.includes('/dashboard/stats')) {
+      return { totalTasks: 0, completedTasks: 0, overdueTasks: 0, completionRate: 0, activeProjects: 0, totalProjects: 0, teamMembers: 0, recentMeetings: 0, upcomingMeetings: 0, trends: { tasks: { value: 0, isPositive: true }, completedTasks: { value: 0, isPositive: true } } }
+    }
+    if (path.includes('/dashboard')) {
+      return []
     }
     return {}
   }
