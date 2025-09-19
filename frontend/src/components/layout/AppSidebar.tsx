@@ -40,6 +40,7 @@ const navigationItems = [
 const adminItems = [
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Organization", url: "/admin/organization", icon: Database },
+  { title: "Reports", url: "/admin/reports", icon: BarChart3 },
   { title: "Audit Logs", url: "/admin/audit", icon: Shield },
 ];
 

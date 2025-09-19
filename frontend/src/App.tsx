@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Auth/Login";
 import UserManagement from "./pages/Admin/UserManagement";
 import OrganizationSettings from "./pages/Admin/OrganizationSettings";
+import AdminReports from "./pages/Admin/AdminReports";
 import AuditLogs from "./pages/Admin/AuditLogs";
 import { ProjectsList, ProjectDetail, ProjectForm } from "./pages/Projects";
 import { TasksList, TaskForm, TaskDetail as TaskDetailPage } from "./pages/Tasks";
@@ -51,6 +52,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRoles={['Admin']}>
                   <OrganizationSettings />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="admin/reports" 
+              element={
+                <ProtectedRoute requiredRoles={['Admin']}>
+                  <AdminReports />
                 </ProtectedRoute>
               } 
             />

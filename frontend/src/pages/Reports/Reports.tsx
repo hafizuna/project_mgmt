@@ -162,7 +162,7 @@ const Reports: React.FC = () => {
         </div>
         {user?.role === 'Admin' && (
           <Button 
-            onClick={() => navigate('/reports/admin')}
+            onClick={() => navigate('/admin/reports')}
             variant="outline"
           >
             <Eye className="h-4 w-4 mr-2" />
