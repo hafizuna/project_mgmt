@@ -10,6 +10,7 @@ interface AuthState {
   error: string | null
   login: (payload: LoginRequest) => Promise<void>
   logout: () => Promise<void>
+  silentLogout: () => void
   setTokens: (accessToken: string, refreshToken?: string) => void
   setUser: (user: User | null) => void
 }
@@ -48,6 +49,11 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch {}
         set({ user: null, accessToken: null, refreshToken: null, loading: false })
+      },
+
+      // Silent logout for token expiration scenarios - no API call needed
+      silentLogout: () => {
+        set({ user: null, accessToken: null, refreshToken: null, loading: false, error: null })
       },
     }),
     {

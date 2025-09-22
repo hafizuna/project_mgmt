@@ -15,8 +15,8 @@ if (!parsed.success) {
 const { JWT_SECRET, JWT_REFRESH_SECRET } = parsed.data
 
 const SALT_ROUNDS = 12
-const ACCESS_TOKEN_EXPIRES_IN = '15m'
-const REFRESH_TOKEN_EXPIRES_IN = '7d'
+const ACCESS_TOKEN_EXPIRES_IN = '24h' // Increased from 15m for better development experience
+const REFRESH_TOKEN_EXPIRES_IN = '30d' // Increased from 7d for longer sessions
 
 export interface JwtPayload {
   userId: string
@@ -63,7 +63,7 @@ export class AuthUtils {
   // Generate expiration date for refresh token
   static getRefreshTokenExpiration(): Date {
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days from now
+    expiresAt.setDate(expiresAt.getDate() + 30) // 30 days from now
     return expiresAt
   }
 

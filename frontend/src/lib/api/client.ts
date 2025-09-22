@@ -17,6 +17,27 @@ function getAccessToken(): string | null {
   }
 }
 
+// Function to handle automatic logout on token expiration
+function handleUnauthorized() {
+  console.log('🚨 Token expired or unauthorized, logging out user...')
+  
+  // Clear auth store
+  localStorage.removeItem('auth-store')
+  
+  // Show a friendly message to user (optional)
+  if (typeof window !== 'undefined' && 'localStorage' in window) {
+    // You could show a toast notification here if needed
+    console.log('🔄 Session has expired. Redirecting to login...')
+  }
+  
+  // Small delay to allow any pending operations to complete
+  setTimeout(() => {
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+  }, 100)
+}
+
 async function request(method: string, path: string, body?: any) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -41,6 +62,12 @@ async function request(method: string, path: string, body?: any) {
   console.log(`API Response: ${res.status} ${res.statusText}`);
 
   if (!res.ok) {
+    // Handle 401 Unauthorized - likely token expiration
+    if (res.status === 401) {
+      handleUnauthorized()
+      throw new Error('Session expired. Please log in again.')
+    }
+    
     let errorText = ''
     try {
       const errorData = await res.json()
