@@ -70,7 +70,7 @@ export interface UsersFilters {
 }
 
 export const usersApi = {
-  // Get users with filtering and pagination
+  // Get users with filtering and pagination (Admin only)
   getUsers: async (filters: UsersFilters = {}): Promise<UsersResponse> => {
     const params = new URLSearchParams();
     
@@ -81,6 +81,12 @@ export const usersApi = {
     });
 
     const response = await apiClient.get(`/users?${params.toString()}`);
+    return response;
+  },
+
+  // Get all users in organization (for adding to projects, etc.)
+  getOrganizationUsers: async (): Promise<{ users: User[] }> => {
+    const response = await apiClient.get('/users/organization');
     return response;
   },
 

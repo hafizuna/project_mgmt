@@ -18,7 +18,9 @@ import CreateMeeting from "./pages/CreateMeeting";
 import MeetingDetail from "./pages/MeetingDetail";
 import EditMeeting from "./pages/EditMeeting";
 import Reports from "./pages/Reports/Reports";
+import { Team } from "./pages/Team";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { NotificationCenter, NotificationPreferences, NotificationDemo } from "./components/notifications";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +28,17 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner
+        position="top-right"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: 'hsl(var(--background))',
+            border: '1px solid hsl(var(--border))',
+            color: 'hsl(var(--foreground))',
+          },
+        }}
+      />
 <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -92,6 +104,14 @@ const App = () => (
             
             {/* Reports Routes */}
             <Route path="reports" element={<Reports />} />
+            
+            {/* Team Routes */}
+            <Route path="team" element={<Team />} />
+            
+            {/* Notification Routes */}
+            <Route path="notifications" element={<NotificationCenter />} />
+            <Route path="notifications/preferences" element={<NotificationPreferences />} />
+            <Route path="notifications/demo" element={<NotificationDemo />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           </Route>

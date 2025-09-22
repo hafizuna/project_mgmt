@@ -2,11 +2,16 @@ import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { UserNav } from "./UserNav";
-import { Bell, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NotificationBellSimple } from "@/components/notifications/NotificationBellSimple";
+import { useNotificationManager, useNotificationShortcuts } from "@/hooks/useNotificationManager";
 
 export function MainLayout() {
+  // Initialize notification system
+  useNotificationManager({ enablePolling: true })
+  useNotificationShortcuts()
+  
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -30,12 +35,7 @@ export function MainLayout() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full text-xs flex items-center justify-center text-destructive-foreground">
-                    3
-                  </span>
-                </Button>
+                <NotificationBellSimple />
                 <UserNav />
               </div>
             </div>

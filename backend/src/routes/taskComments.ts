@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, TaskHistoryAction } from '@prisma/client'
+import { PrismaClient, TaskHistoryAction, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
 import { authenticate } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
+import { NotificationService } from '../services/NotificationService.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+const notificationService = NotificationService.getInstance()
 
 // Validation schemas
 const createCommentSchema = z.object({
@@ -197,6 +199,91 @@ router.post('/tasks/:taskId/comments', authenticate, async (req: Request, res: R
       taskId,
       { commentId: comment.id, isReply: !!parentId }
     )
+
+    // Send comment notifications
+    try {
+      // Get task details for notifications
+      const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        include: {
+          project: {
+            select: { id: true, name: true }
+          },
+          assignee: {
+            select: { id: true, name: true }
+          },
+          reporter: {
+            select: { id: true, name: true }
+          }
+        }
+      })
+
+      if (task) {
+        const notifyUsers = new Set<string>()
+        
+        // Notify task assignee
+        if (task.assigneeId && task.assigneeId !== userId) {
+          notifyUsers.add(task.assigneeId)
+        }
+        
+        // Notify task reporter
+        if (task.reporterId && task.reporterId !== userId) {
+          notifyUsers.add(task.reporterId)
+        }
+        
+        // If it's a reply, notify the original comment author
+        if (parentId) {
+          const parentComment = await prisma.taskComment.findUnique({
+            where: { id: parentId },
+            select: { authorId: true }
+          })
+          
+          if (parentComment && parentComment.authorId !== userId) {
+            notifyUsers.add(parentComment.authorId)
+          }
+        }
+        
+        // Notify all previous commenters (excluding current user)
+        const previousCommentAuthors = await prisma.taskComment.findMany({
+          where: {
+            taskId,
+            authorId: { not: userId }
+          },
+          select: { authorId: true },
+          distinct: ['authorId']
+        })
+        
+        for (const author of previousCommentAuthors) {
+          notifyUsers.add(author.authorId)
+        }
+        
+        // Send notifications to all relevant users
+        for (const recipientId of notifyUsers) {
+          const isReply = !!parentId
+          await notificationService.createNotification({
+            userId: recipientId,
+            orgId,
+            type: NotificationType.TASK_COMMENT_ADDED,
+            category: NotificationCategory.TASK,
+            title: `${isReply ? 'Reply' : 'Comment'} on task: ${task.title}`,
+            message: `${comment.author.name} ${isReply ? 'replied to a comment' : 'added a comment'} on "${task.title}"`,
+            data: {
+              taskId: task.id,
+              projectId: task.projectId,
+              commentId: comment.id,
+              parentId,
+              isReply
+            },
+            entityType: 'TaskComment',
+            entityId: comment.id,
+            priority: NotificationPriority.Low
+          })
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send task comment notifications:', notificationError)
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({ comment })
   } catch (error) {

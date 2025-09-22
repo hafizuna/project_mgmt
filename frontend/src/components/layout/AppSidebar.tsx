@@ -11,6 +11,8 @@ import {
   Clock,
   Shield,
   Database,
+  Bell,
+  TestTube,
 } from "lucide-react";
 
 import {
@@ -46,6 +48,11 @@ const adminItems = [
 
 const settingsItems = [
   { title: "Settings", url: "/settings", icon: Settings },
+];
+
+const notificationItems = [
+  { title: "Notifications", url: "/notifications", icon: Bell },
+  { title: "Notification Demo", url: "/notifications/demo", icon: TestTube },
 ];
 
 export function AppSidebar() {
@@ -135,6 +142,32 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* Notifications - for testing */}
+        <SidebarGroup>
+          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+            Notifications
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {notificationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${getNavClassName(
+                        item.url
+                      )}`}
+                    >
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      {!collapsed && <span className="font-medium">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {/* Settings */}
         <SidebarGroup className="mt-auto">

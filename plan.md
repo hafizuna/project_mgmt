@@ -426,6 +426,17 @@ GET    /users/:id          - Get user details (role-based visibility)
 PUT    /users/:id          - Update user (Admin: all, Manager: project members, Self only)
 DELETE /users/:id          - Deactivate user (Admin only)
 PUT    /users/:id/role     - Change user role (Admin only)
+GET    /users/organization - Get all organization users (authenticated users)
+```
+
+### Team Management
+```
+GET    /users/organization - List organization team members (all authenticated)
+GET    /users/:id/profile  - Get detailed team member profile
+PUT    /users/:id/role     - Update team member role (Admin/Manager only)
+PUT    /users/:id/status   - Activate/deactivate team member (Admin only)
+GET    /team/analytics     - Get team performance metrics
+GET    /team/directory     - Team member directory with search/filter
 ```
 
 ### Project Management
@@ -488,6 +499,17 @@ GET    /reports/burndown    - Sprint burndown data (Manager+)
 GET    /reports/time        - Time tracking reports (Manager+)
 GET    /reports/audit       - Audit reports (Admin only)
 POST   /reports/export      - Export report data (Manager+)
+```
+
+### Notification System
+```
+GET    /notifications           - List user notifications (paginated, filtered)
+GET    /notifications/unread-count - Get unread notification count
+PUT    /notifications/:id/read  - Mark notification as read
+PUT    /notifications/mark-all-read - Mark all notifications as read
+GET    /notifications/preferences - Get user notification preferences
+PUT    /notifications/preferences - Update notification settings
+POST   /notifications/test      - Send test notification (development)
 ```
 
 ### Admin Panel (Admin Only)
@@ -1380,15 +1402,116 @@ Collaboration features enable teams to communicate, coordinate, and work togethe
 - **Frontend**: Socket.IO client, React Query for real-time sync
 - **Infrastructure**: Redis (optional, for Socket.IO scaling)
 
-### 🚧 Phase 6: Real-time Collaboration & Notifications (Weeks 11-12) - NEXT
-- [ ] Real-time updates (Socket.IO) for tasks and projects
-- [ ] Comprehensive notification system (in-app + email)
-- [ ] Enhanced @mentions in comments with notifications
-- [ ] Activity feeds for projects and teams
-- [ ] User presence indicators and online status
-- [ ] Push notifications for critical updates
+### ✅ Phase 6: Team Management & Notification System (Weeks 11-12) - COMPLETED
+- [x] Comprehensive team management interface with member profiles
+- [x] Real-time notification system with in-app notifications
+- [x] Team directory with detailed member information
+- [x] Role-based team member management and access control
+- [x] User session tracking and activity monitoring
+- [x] Organization-wide team analytics and insights
+- [x] Team member profile pages with comprehensive data
+- [x] Automated notification triggers for all major events
 
-### Phase 7: Time Tracking & Timesheets (Weeks 13-14)
+**Completed Features:**
+- **Comprehensive Team Management System**: Full-featured team overview and management
+  - Beautiful team dashboard with member cards in grid and list views
+  - Real-time search and filtering by role, status, and custom queries
+  - Team analytics dashboard showing total members, active users, performance metrics
+  - Role-based access controls for team management (Admin/Manager permissions)
+  - Team member invitation system with role assignment
+  - Export functionality for team data and reports
+  - Responsive design optimized for all screen sizes
+
+- **Advanced Team Member Profiles**: Comprehensive individual member management
+  - Detailed member profile pages with real database integration
+  - Organization information display with membership details
+  - Project assignment tracking showing member's active projects
+  - Active session monitoring with device and timestamp information
+  - Account activity timeline showing creation, updates, and login history
+  - Role and permission management with detailed descriptions
+  - Admin/Manager controls for role changes and account activation/deactivation
+  - Seamless navigation between team list and individual profiles
+
+- **Schema-Aligned Implementation**: Perfect integration with existing database
+  - Uses actual Prisma User model with all proper relationships
+  - Organization, projects, and sessions data pulled from real database
+  - Proper API integration with existing usersApi methods
+  - Role-based data filtering and access control
+  - Real error handling and loading states throughout
+  - Consistent UI patterns matching existing ProjectDetail and other pages
+
+- **Unified Notification System**: Comprehensive notification infrastructure
+  - **Database Schema**: Complete notification models with templates, queues, and logs
+    - `Notification`: Core notification storage with user targeting and read status
+    - `NotificationPreference`: User-configurable notification settings
+    - `NotificationTemplate`: Reusable templates with variable substitution
+    - `NotificationQueue`: Scheduled notification delivery system
+    - `NotificationLog`: Delivery tracking and audit trail
+  - **Backend Services**: Professional notification management architecture
+    - `NotificationService`: Core notification creation, delivery, and management
+    - `EmailService`: SMTP email integration with error handling
+    - `TemplateService`: Dynamic template rendering with default templates
+    - Automated triggers for tasks, projects, meetings, and reports
+  - **Frontend Integration**: Complete notification UI system
+    - `NotificationBell`: Real-time notification bell with unread counts
+    - `NotificationDropdown`: Interactive notification list with actions
+    - `NotificationCenter`: Full-page notification management interface
+    - `NotificationPreferences`: User settings for notification types and delivery
+    - Real-time polling with toast notifications for immediate feedback
+    - Keyboard shortcuts for marking read and refreshing notifications
+
+- **Event-Driven Notification Triggers**: Automated notifications for all major events
+  - **Task Events**: Creation, assignment, status changes, comments, due date reminders
+  - **Project Events**: Creation, updates, member additions, milestone completion
+  - **Meeting Events**: Scheduling, reminders, action items, status changes
+  - **Report Events**: Weekly report reminders, compliance alerts, submission confirmations
+  - **User Events**: Role changes, account activation, password resets
+  - **System Events**: Scheduled reminders, automated follow-ups, deadline notifications
+
+**API Endpoints Implemented:**
+- `GET /api/users/organization` - Get all organization members (authenticated users)
+- `GET /api/users/:id` - Get detailed user profile with projects and sessions
+- `PUT /api/users/:id` - Update user roles and status (Admin/Manager only)
+- `GET /api/notifications` - List notifications with filtering and pagination
+- `GET /api/notifications/unread-count` - Get unread notification count
+- `PUT /api/notifications/:id/read` - Mark notification as read
+- `PUT /api/notifications/mark-all-read` - Mark all notifications as read
+- `GET /api/notifications/preferences` - Get user notification preferences
+- `PUT /api/notifications/preferences` - Update notification settings
+
+**Frontend Pages Implemented:**
+- `Team` (`/team`) - Main team management page with search, filtering, and analytics
+- `TeamMemberProfile` - Individual member profile with comprehensive information
+- `NotificationCenter` (`/notifications`) - Full notification management interface
+- `NotificationPreferences` (`/notifications/preferences`) - User settings
+- `NotificationDemo` (`/notifications/demo`) - Testing and demonstration interface
+
+**Technical Infrastructure:**
+- **Database Schema Enhanced**: Added comprehensive notification and preference models
+- **Backend Architecture**: Notification service with email integration and template system
+- **Frontend State Management**: Notification store with real-time updates
+- **Real-time Polling**: 30-second notification check with efficient caching
+- **Email Integration**: SMTP support for email notifications (configurable)
+- **Scheduling System**: CRON-based notification scheduling for reminders
+- **Template System**: Reusable notification templates with variable substitution
+
+**Integration Points:**
+- **Task Management**: Notifications for all task lifecycle events
+- **Project Management**: Member notifications for project updates and assignments
+- **Meeting Management**: Automated meeting reminders and action item notifications
+- **User Management**: Role change and account status notifications
+- **Report System**: Weekly report reminders and compliance monitoring
+- **Authentication**: Login notifications and session management alerts
+
+### 🚧 Phase 7: Real-time Collaboration Enhancement (Weeks 13-14) - NEXT
+- [ ] Real-time updates (Socket.IO) for live task and project changes
+- [ ] Enhanced @mentions in comments with real-time notifications
+- [ ] Activity feeds for projects and teams with live updates
+- [ ] User presence indicators and online status tracking
+- [ ] Push notifications for critical updates (browser notifications)
+- [ ] Real-time collaborative editing for meeting notes and comments
+
+### Phase 8: Time Tracking & Timesheets (Weeks 15-16)
 - [ ] Time entry and tracking against tasks
 - [ ] Timer functionality for active work
 - [ ] Timesheet management and approval workflow
@@ -1396,7 +1519,7 @@ Collaboration features enable teams to communicate, coordinate, and work togethe
 - [ ] Time reporting and analytics (Manager+)
 - [ ] Integration with task estimates and project budgets
 
-### ✅ Phase 8: Reporting & Analytics (Weeks 15-16) - COMPLETED
+### ✅ Phase 9: Reporting & Analytics (Weeks 17-18) - COMPLETED
 - [x] Role-based reporting system with dashboards
 - [x] Team performance reports (Manager+)
 - [x] Project health and progress dashboards
@@ -1431,7 +1554,7 @@ Collaboration features enable teams to communicate, coordinate, and work togethe
   - Trend analysis with historical data comparison
   - Performance optimized queries with proper indexing
 
-### Phase 9: Production Readiness (Weeks 17-18)
+### Phase 10: Production Readiness (Weeks 19-20)
 - [ ] Security hardening and penetration testing
 - [ ] Comprehensive testing (unit, integration, E2E)
 - [ ] Documentation completion

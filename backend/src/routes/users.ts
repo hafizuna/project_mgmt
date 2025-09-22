@@ -112,6 +112,38 @@ router.get('/', authenticate, requireRole(['Admin']), async (req: Request, res: 
 })
 
 /**
+ * GET /users/organization
+ * Get all users in the current user's organization (for adding to projects, etc.)
+ * Available to all authenticated users
+ */
+router.get('/organization', authenticate, async (req: Request, res: Response) => {
+  try {
+    console.log('🔍 GET /users/organization called by user:', req.user?.userId, 'orgId:', req.user?.orgId, 'role:', req.user?.role)
+    
+    const users = await prisma.user.findMany({
+      where: {
+        orgId: req.user!.orgId,
+        isActive: true // Only active users
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        avatar: true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    console.log('📄 Found', users.length, 'organization users:', users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role })))
+    res.json({ users })
+  } catch (error) {
+    console.error('Get organization users error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
  * GET /users/:id
  * Get a specific user by ID
  */

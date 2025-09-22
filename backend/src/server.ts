@@ -17,6 +17,9 @@ import { meetingAttendeesRouter } from './routes/meetingAttendees.js'
 import { actionItemsRouter } from './routes/actionItems.js'
 import { dashboardRouter } from './routes/dashboard.js'
 import weeklyReportsRouter from './routes/weeklyReports.js'
+import notificationsRoutes from './routes/notifications.js'
+import schedulerRoutes from './routes/scheduler.js'
+import { TaskScheduler } from './services/TaskScheduler.js'
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -62,6 +65,8 @@ app.use('/api', meetingAttendeesRouter)
 app.use('/api', actionItemsRouter)
 app.use('/api/dashboard', dashboardRouter)
 app.use('/api/reports', weeklyReportsRouter)
+app.use('/api/notifications', notificationsRoutes)
+app.use('/api/scheduler', schedulerRoutes)
 
 // Root
 app.get('/api', (_req, res) => {
@@ -70,7 +75,22 @@ app.get('/api', (_req, res) => {
 
 const port = parseInt(ENV.PORT, 10)
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`API listening on http://localhost:${port}`)
+  
+  // Initialize task scheduler for report notifications
+  try {
+    const taskScheduler = TaskScheduler.getInstance()
+    
+    // Initialize report settings for all organizations
+    await taskScheduler.initializeAllReportSettings()
+    
+    // Start scheduled tasks
+    taskScheduler.initialize()
+    
+    console.log('📋 Task scheduler initialized successfully')
+  } catch (error) {
+    console.error('❌ Failed to initialize task scheduler:', error)
+  }
 })
 

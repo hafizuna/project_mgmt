@@ -106,12 +106,20 @@ export default function ProjectDetail() {
 
   const fetchAvailableUsers = async () => {
     try {
-      const response = await usersApi.getUsers({ limit: 100 }); // Get all users
+      console.log('🔍 Fetching available users for project:', id);
+      console.log('👥 Current members:', members.map(m => ({ userId: m.userId, name: m.user?.name || 'Unknown' })));
+      
+      const response = await usersApi.getOrganizationUsers(); // Get organization users
+      console.log('📥 API Response:', response);
+      
       const memberUserIds = members.map(m => m.userId);
       const available = response.users.filter(u => !memberUserIds.includes(u.id));
+      
+      console.log('✅ Available users after filtering:', available);
       setAvailableUsers(available);
     } catch (error) {
-      console.error('Error fetching available users:', error);
+      console.error('❌ Error fetching available users:', error);
+      toast.error('Failed to load available users');
     }
   };
 
@@ -121,10 +129,11 @@ export default function ProjectDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (showAddMember && members.length > 0) {
+    if (showAddMember) {
+      console.log('🚀 Dialog opened, fetching available users...');
       fetchAvailableUsers();
     }
-  }, [showAddMember, members]);
+  }, [showAddMember]);
 
   const handleAddMember = async () => {
     if (!id || !selectedUserId) return;
@@ -173,9 +182,16 @@ export default function ProjectDetail() {
     }
   };
 
+  // Debug user role
+  console.log('🔐 Current user:', { id: user?.id, role: user?.role, name: user?.name });
+  console.log('🏗️ Project owner:', project?.ownerId);
+  console.log('👥 User member info:', members.find(m => m.userId === user?.id));
+  
   const canManageProject = user?.role === 'Admin' || user?.role === 'Manager';
   const userMember = members.find(m => m.userId === user?.id);
   const canManageMembers = canManageProject || userMember?.role === ProjectRole.Owner || userMember?.role === ProjectRole.Manager;
+  
+  console.log('🛡️ Permissions:', { canManageProject, canManageMembers, userRole: user?.role, userMemberRole: userMember?.role });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

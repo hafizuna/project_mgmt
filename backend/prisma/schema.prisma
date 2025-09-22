@@ -23,6 +23,8 @@ model Organization {
   weeklyReports   WeeklyReport[]
   reportReminders ReportReminder[]
   reportSettings  ReportSettings?
+  notifications   Notification[]
+  notificationTemplates NotificationTemplate[]
 }
 
 model User {
@@ -51,6 +53,8 @@ model User {
   weeklyReports    WeeklyReport[]
   reportComments   ReportComment[]
   reportReminders  ReportReminder[]
+  notifications    Notification[]
+  notificationPreferences NotificationPreference?
   org              Organization       @relation(fields: [orgId], references: [id])
   sessions         UserSession[]
 }
@@ -515,4 +519,285 @@ enum ReminderType {
   FirstReminder
   FinalReminder
   Overdue
+}
+
+// Unified Notification System Models
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  orgId       String
+  type        NotificationType
+  category    NotificationCategory
+  title       String
+  message     String
+  data        Json?            // Additional context data (IDs, metadata)
+  
+  // Related Entity Info
+  entityType  String?          // Task, Project, Meeting, WeeklyReport, etc.
+  entityId    String?          // ID of the related entity
+  
+  // Delivery & Status
+  priority    NotificationPriority @default(Medium)
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  
+  // Delivery Channels
+  deliveredViaEmail    Boolean @default(false)
+  deliveredViaApp      Boolean @default(true)
+  deliveredViaPush     Boolean @default(false)
+  
+  // Email Delivery Status
+  emailSentAt     DateTime?
+  emailDelivered  Boolean? @default(false)
+  emailError      String?
+  
+  // Scheduling
+  scheduledFor    DateTime?        // For future delivery
+  deliveredAt     DateTime?
+  
+  // Metadata
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  expiresAt   DateTime?        // Optional expiration
+  
+  // Relations
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  queue       NotificationQueue[]
+  logs        NotificationLog[]
+  
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([orgId, type, createdAt])
+  @@index([scheduledFor])
+  @@index([expiresAt])
+}
+
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  orgId       String
+  
+  // Global Settings
+  enableInApp         Boolean @default(true)
+  enableEmail         Boolean @default(true)
+  enablePush          Boolean @default(true)
+  emailDigestFrequency EmailDigestFrequency @default(Daily)
+  
+  // Category Preferences  
+  taskNotifications    Boolean @default(true)
+  projectNotifications Boolean @default(true)
+  meetingNotifications Boolean @default(true)
+  reportNotifications  Boolean @default(true)
+  systemNotifications  Boolean @default(true)
+  
+  // Email Preferences
+  taskEmail           Boolean @default(true)
+  projectEmail        Boolean @default(true)
+  meetingEmail        Boolean @default(true)
+  reportEmail         Boolean @default(true)
+  systemEmail         Boolean @default(false)
+  
+  // Quiet Hours
+  quietHoursEnabled   Boolean @default(false)
+  quietHoursStart     String? // "22:00" format
+  quietHoursEnd       String? // "08:00" format
+  quietHoursTimezone  String? @default("UTC")
+  
+  // Weekend Settings
+  enableWeekendsEmail Boolean @default(false)
+  enableWeekendsApp   Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+model NotificationTemplate {
+  id          String           @id @default(uuid())
+  orgId       String
+  type        NotificationType
+  category    NotificationCategory
+  name        String
+  description String?
+  
+  // Template Content
+  titleTemplate   String       // "Task {{taskTitle}} is due tomorrow"
+  messageTemplate String       // "Your task {{taskTitle}} in project {{projectName}} is due on {{dueDate}}"
+  emailSubject    String?      // Email-specific subject
+  emailTemplate   String?      // HTML email template
+  
+  // Template Variables (JSON schema of expected variables)
+  variables   Json             // { "taskTitle": "string", "projectName": "string" }
+  
+  // Settings
+  isActive    Boolean          @default(true)
+  isDefault   Boolean          @default(false)
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  // Relations
+  org         Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  @@unique([orgId, type, name])
+  @@index([orgId, type])
+}
+
+model NotificationQueue {
+  id              String               @id @default(uuid())
+  notificationId  String?
+  
+  // Queue Info
+  type            NotificationType
+  priority        NotificationPriority @default(Medium)
+  scheduledFor    DateTime
+  
+  // Processing Status
+  status          QueueStatus          @default(Pending)
+  attempts        Int                  @default(0)
+  maxAttempts     Int                  @default(3)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?
+  
+  // Error Handling
+  error           String?
+  errorDetails    Json?
+  
+  // Payload
+  payload         Json                 // Full notification data
+  
+  // Metadata
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  processedAt     DateTime?
+  
+  // Relations
+  notification    Notification?        @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  
+  @@index([scheduledFor, status])
+  @@index([status, priority])
+  @@index([type, status])
+}
+
+model NotificationLog {
+  id              String               @id @default(uuid())
+  notificationId  String
+  
+  // Delivery Info
+  channel         NotificationChannel
+  status          DeliveryStatus
+  
+  // Timestamps
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  
+  // Error Info
+  error           String?
+  errorCode       String?
+  
+  // Metadata
+  metadata        Json?                // Channel-specific metadata
+  createdAt       DateTime             @default(now())
+  
+  // Relations
+  notification    Notification         @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  
+  @@index([notificationId])
+  @@index([channel, status])
+  @@index([sentAt])
+}
+
+// Notification Enums
+enum NotificationType {
+  // Task Related
+  TASK_ASSIGNED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  TASK_STATUS_CHANGED
+  TASK_COMMENT_ADDED
+  TASK_MENTION
+  
+  // Project Related
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_MEMBER_ADDED
+  PROJECT_DEADLINE_APPROACHING
+  
+  // Meeting Related
+  MEETING_SCHEDULED
+  MEETING_REMINDER
+  MEETING_CANCELLED
+  MEETING_UPDATED
+  MEETING_STARTING_SOON
+  
+  // Report Related
+  WEEKLY_PLAN_DUE
+  WEEKLY_PLAN_OVERDUE
+  WEEKLY_REPORT_DUE
+  WEEKLY_REPORT_OVERDUE
+  REPORT_SUBMISSION_RECEIVED
+  LOW_COMPLIANCE_ALERT
+  
+  // System Related
+  SYSTEM_MAINTENANCE
+  ACCOUNT_UPDATED
+  SECURITY_ALERT
+  WELCOME
+  
+  // General
+  CUSTOM
+}
+
+enum NotificationCategory {
+  TASK
+  PROJECT
+  MEETING
+  REPORT
+  SYSTEM
+  SECURITY
+}
+
+enum NotificationPriority {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum DeliveryStatus {
+  Pending
+  Sent
+  Delivered
+  Failed
+  Bounced
+  Read
+}
+
+enum QueueStatus {
+  Pending
+  Processing
+  Completed
+  Failed
+  Cancelled
+}
+
+enum EmailDigestFrequency {
+  Never
+  Immediate
+  Hourly
+  Daily
+  Weekly
 }

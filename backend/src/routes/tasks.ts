@@ -4,9 +4,12 @@ import { PrismaClient, Role, TaskStatus, TaskPriority, ProjectMemberRole } from 
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 import { TaskHistoryLogger } from '../utils/taskHistory.js'
+import { NotificationService } from '../services/NotificationService.js'
+import { NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
 
 const router = Router()
 const prisma = new PrismaClient()
+const notificationService = NotificationService.getInstance()
 
 // Validation schemas
 const createTaskSchema = z.object({
@@ -360,12 +363,13 @@ router.get('/tasks/:id', authenticate, async (req: Request, res: Response) => {
 router.post('/projects/:projectId/tasks', authenticate, async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params
-    // Transform status and priority if provided
+    // Transform status, priority, and date if provided
     const rawData = req.body
     const transformedData = {
       ...rawData,
       status: rawData.status ? mapFrontendStatusToBackend(rawData.status) : undefined,
       priority: rawData.priority ? mapFrontendPriorityToBackend(rawData.priority) : undefined,
+      dueDate: rawData.dueDate ? `${rawData.dueDate}T23:59:59.999Z` : undefined,
     }
     const data = createTaskSchema.parse(transformedData)
     const userId = req.user!.userId
@@ -445,10 +449,70 @@ router.post('/projects/:projectId/tasks', authenticate, async (req: Request, res
     // Add to task history
     await TaskHistoryLogger.logTaskCreation(task.id, userId)
 
+    // Send notifications
+    try {
+      // Notify assignee if task is assigned
+      if (task.assigneeId && task.assigneeId !== userId) {
+        await notificationService.createNotification({
+          userId: task.assigneeId,
+          orgId,
+          type: NotificationType.TASK_ASSIGNED,
+          category: NotificationCategory.TASK,
+          title: `New task assigned: ${task.title}`,
+          message: `You have been assigned a new task "${task.title}" in project ${task.project.name}`,
+          data: {
+            taskId: task.id,
+            projectId: task.projectId,
+            reporterId: task.reporterId,
+            dueDate: task.dueDate,
+            priority: task.priority
+          },
+          entityType: 'Task',
+          entityId: task.id,
+          priority: task.priority === 'Critical' ? NotificationPriority.High : NotificationPriority.Medium
+        })
+      }
+
+      // Notify project members (excluding reporter and assignee) about new task
+      const projectMembers = await prisma.projectMember.findMany({
+        where: {
+          projectId,
+          userId: {
+            notIn: [userId, task.assigneeId].filter(Boolean) as string[]
+          }
+        },
+        select: { userId: true }
+      })
+
+      for (const member of projectMembers) {
+        await notificationService.createNotification({
+          userId: member.userId,
+          orgId,
+          type: NotificationType.PROJECT_UPDATED,
+          category: NotificationCategory.PROJECT,
+          title: `New task in ${task.project.name}`,
+          message: `${task.reporter?.name} created a new task "${task.title}"`,
+          data: {
+            taskId: task.id,
+            projectId: task.projectId,
+            reporterId: task.reporterId
+          },
+          entityType: 'Task',
+          entityId: task.id,
+          priority: NotificationPriority.Low
+        })
+      }
+    } catch (notificationError) {
+      console.error('Failed to send task creation notifications:', notificationError)
+      // Don't fail the request if notifications fail
+    }
+
     const transformedTask = transformTaskForFrontend(task)
     res.status(201).json({ task: transformedTask })
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('Task validation failed:', error.errors)
+      console.error('Request body was:', req.body)
       return res.status(400).json({ error: 'Validation error', details: error.errors })
     }
     console.error('Create task error:', error)
@@ -464,12 +528,13 @@ router.post('/projects/:projectId/tasks', authenticate, async (req: Request, res
 router.put('/tasks/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    // Transform status and priority if provided
+    // Transform status, priority, and date if provided
     const rawUpdates = req.body
     const transformedUpdates = {
       ...rawUpdates,
       status: rawUpdates.status ? mapFrontendStatusToBackend(rawUpdates.status) : undefined,
       priority: rawUpdates.priority ? mapFrontendPriorityToBackend(rawUpdates.priority) : undefined,
+      dueDate: rawUpdates.dueDate ? `${rawUpdates.dueDate}T23:59:59.999Z` : undefined,
     }
     const updates = updateTaskSchema.parse(transformedUpdates)
     const userId = req.user!.userId
@@ -601,6 +666,102 @@ router.put('/tasks/:id', authenticate, async (req: Request, res: Response) => {
         id,
         { updatedFields: otherUpdates, taskTitle: task.title }
       )
+    }
+
+    // Send notifications for changes
+    try {
+      // Notify on status change
+      if (updates.status && updates.status !== existingTask.status) {
+        const statusNotifications = []
+        
+        // Notify assignee about status change
+        if (task.assigneeId && task.assigneeId !== userId) {
+          statusNotifications.push({
+            userId: task.assigneeId,
+            type: updates.status === 'Done' ? NotificationType.TASK_STATUS_CHANGED : NotificationType.TASK_ASSIGNED,
+            title: `Task status updated: ${task.title}`,
+            message: `Task status changed from ${mapTaskStatusToFrontend(existingTask.status)} to ${mapTaskStatusToFrontend(updates.status)}`
+          })
+        }
+        
+        // Notify reporter about status change
+        if (task.reporterId && task.reporterId !== userId && task.reporterId !== task.assigneeId) {
+          statusNotifications.push({
+            userId: task.reporterId,
+            type: updates.status === 'Done' ? NotificationType.TASK_STATUS_CHANGED : NotificationType.TASK_ASSIGNED,
+            title: `Task status updated: ${task.title}`,
+            message: `Task status changed from ${mapTaskStatusToFrontend(existingTask.status)} to ${mapTaskStatusToFrontend(updates.status)}`
+          })
+        }
+
+        // Send status notifications
+        for (const notification of statusNotifications) {
+          await notificationService.createNotification({
+            userId: notification.userId,
+            orgId,
+            type: notification.type,
+            category: NotificationCategory.TASK,
+            title: notification.title,
+            message: notification.message,
+            data: {
+              taskId: task.id,
+              projectId: task.projectId,
+              oldStatus: existingTask.status,
+              newStatus: updates.status
+            },
+            entityType: 'Task',
+            entityId: task.id,
+            priority: updates.status === 'Done' ? NotificationPriority.Medium : NotificationPriority.Low
+          })
+        }
+      }
+
+      // Notify on assignment change
+      if (updates.assigneeId !== undefined && updates.assigneeId !== existingTask.assigneeId) {
+        // Notify new assignee
+        if (updates.assigneeId && updates.assigneeId !== userId) {
+          await notificationService.createNotification({
+            userId: updates.assigneeId,
+            orgId,
+            type: NotificationType.TASK_ASSIGNED,
+            category: NotificationCategory.TASK,
+            title: `Task assigned to you: ${task.title}`,
+            message: `You have been assigned to task "${task.title}" in project ${task.project.name}`,
+            data: {
+              taskId: task.id,
+              projectId: task.projectId,
+              reporterId: task.reporterId,
+              dueDate: task.dueDate
+            },
+            entityType: 'Task',
+            entityId: task.id,
+            priority: task.priority === 'Critical' ? NotificationPriority.High : NotificationPriority.Medium
+          })
+        }
+
+        // Notify old assignee if task was reassigned
+        if (existingTask.assigneeId && existingTask.assigneeId !== userId && existingTask.assigneeId !== updates.assigneeId) {
+          await notificationService.createNotification({
+            userId: existingTask.assigneeId,
+            orgId,
+            type: NotificationType.TASK_ASSIGNED,
+            category: NotificationCategory.TASK,
+            title: `Task reassigned: ${task.title}`,
+            message: `Task "${task.title}" has been reassigned to ${task.assignee?.name || 'someone else'}`,
+            data: {
+              taskId: task.id,
+              projectId: task.projectId,
+              newAssigneeId: updates.assigneeId
+            },
+            entityType: 'Task',
+            entityId: task.id,
+            priority: NotificationPriority.Low
+          })
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send task update notifications:', notificationError)
+      // Don't fail the request if notifications fail
     }
 
     const transformedTask = transformTaskForFrontend(task)

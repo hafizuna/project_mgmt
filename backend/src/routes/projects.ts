@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, Role, ProjectStatus, ProjectPriority, ProjectMemberRole } from '@prisma/client'
+import { PrismaClient, Role, ProjectStatus, ProjectPriority, ProjectMemberRole, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
+import { NotificationService } from '../services/NotificationService.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+const notificationService = NotificationService.getInstance()
 
 // Validation schemas
 const createProjectSchema = z.object({
@@ -14,7 +16,8 @@ const createProjectSchema = z.object({
   status: z.nativeEnum(ProjectStatus).optional(),
   priority: z.nativeEnum(ProjectPriority).optional(),
   startDate: z.string().datetime().optional(),
-  dueDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(), // Frontend sends endDate
+  dueDate: z.string().datetime().optional(), // Keep for backward compatibility
   budget: z.number().min(0, 'Budget must be positive').optional(),
   settings: z.record(z.any()).optional(),
 })
@@ -25,7 +28,8 @@ const updateProjectSchema = z.object({
   status: z.nativeEnum(ProjectStatus).optional(),
   priority: z.nativeEnum(ProjectPriority).optional(),
   startDate: z.string().datetime().optional(),
-  dueDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(), // Frontend sends endDate
+  dueDate: z.string().datetime().optional(), // Keep for backward compatibility
   budget: z.number().min(0, 'Budget must be positive').optional(),
   settings: z.record(z.any()).optional(),
 })
@@ -77,7 +81,12 @@ const mapFrontendStatusToBackend = (status: string): ProjectStatus => {
     'IN_PROGRESS': ProjectStatus.Active, 
     'ON_HOLD': ProjectStatus.OnHold,
     'COMPLETED': ProjectStatus.Completed,
-    'CANCELLED': ProjectStatus.Archived
+    'CANCELLED': ProjectStatus.Archived,
+    // Handle direct backend enum values as well
+    'Active': ProjectStatus.Active,
+    'Completed': ProjectStatus.Completed,
+    'Archived': ProjectStatus.Archived,
+    'OnHold': ProjectStatus.OnHold
   }
   return statusMap[status] || ProjectStatus.Active
 }
@@ -87,7 +96,12 @@ const mapFrontendPriorityToBackend = (priority: string): ProjectPriority => {
     'LOW': ProjectPriority.Low,
     'MEDIUM': ProjectPriority.Medium,
     'HIGH': ProjectPriority.High,
-    'CRITICAL': ProjectPriority.Critical
+    'CRITICAL': ProjectPriority.Critical,
+    // Handle direct backend enum values as well
+    'Low': ProjectPriority.Low,
+    'Medium': ProjectPriority.Medium,
+    'High': ProjectPriority.High,
+    'Critical': ProjectPriority.Critical
   }
   return priorityMap[priority] || ProjectPriority.Medium
 }
@@ -376,17 +390,29 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  * Create a new project
  * Role access: Admin (any project), Manager (can create projects they'll own)
  */
-router.post('/', authenticate, requireRole(['Admin', 'Manager']), async (req: Request, res: Response) => {
+router.post('/', authenticate, requireRole(['Admin', 'Manager', 'Team']), async (req: Request, res: Response) => {
   try {
-    const data = createProjectSchema.parse(req.body)
+    // Transform frontend data to backend format
+    const transformedBody = {
+      ...req.body,
+      status: req.body.status ? mapFrontendStatusToBackend(req.body.status) : undefined,
+      priority: req.body.priority ? mapFrontendPriorityToBackend(req.body.priority) : undefined,
+      startDate: req.body.startDate ? `${req.body.startDate}T00:00:00.000Z` : undefined,
+      endDate: req.body.endDate ? `${req.body.endDate}T23:59:59.999Z` : undefined
+    }
+    
+    const data = createProjectSchema.parse(transformedBody)
     const userId = req.user!.userId
     const orgId = req.user!.orgId
 
+    // Destructure to exclude fields that need special handling
+    const { endDate, dueDate, startDate, ...restData } = data
+    
     const project = await prisma.project.create({
       data: {
-        ...data,
-        startDate: data.startDate ? new Date(data.startDate) : null,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        ...restData,
+        startDate: startDate ? new Date(startDate) : null,
+        dueDate: (endDate || dueDate) ? new Date(endDate || dueDate!) : null,
         ownerId: userId,
         orgId: orgId,
       },
@@ -418,10 +444,49 @@ router.post('/', authenticate, requireRole(['Admin', 'Manager']), async (req: Re
       { projectName: project.name, projectStatus: project.status }
     )
 
+    // Send project creation notifications
+    try {
+      // Get all organization members (excluding project creator)
+      const orgMembers = await prisma.user.findMany({
+        where: {
+          orgId,
+          id: { not: userId },
+          role: { in: [Role.Admin, Role.Manager] } // Only notify managers and admins about new projects
+        },
+        select: { id: true }
+      })
+
+      // Notify organization managers and admins about new project
+      for (const member of orgMembers) {
+        await notificationService.createNotification({
+          userId: member.id,
+          orgId,
+          type: NotificationType.PROJECT_CREATED,
+          category: NotificationCategory.PROJECT,
+          title: `New project created: ${project.name}`,
+          message: `${project.owner.name} created a new project "${project.name}"`,
+          data: {
+            projectId: project.id,
+            ownerId: project.ownerId,
+            priority: project.priority,
+            dueDate: project.dueDate
+          },
+          entityType: 'Project',
+          entityId: project.id,
+          priority: project.priority === 'Critical' ? NotificationPriority.Medium : NotificationPriority.Low
+        })
+      }
+    } catch (notificationError) {
+      console.error('Failed to send project creation notifications:', notificationError)
+      // Don't fail the request if notifications fail
+    }
+
     const transformedProject = transformProjectForFrontend(project)
     res.status(201).json({ project: transformedProject })
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('Project validation failed:', error.errors)
+      console.error('Request body was:', req.body)
       return res.status(400).json({ error: 'Validation error', details: error.errors })
     }
     console.error('Create project error:', error)
@@ -437,7 +502,17 @@ router.post('/', authenticate, requireRole(['Admin', 'Manager']), async (req: Re
 router.put('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const updates = updateProjectSchema.parse(req.body)
+    
+    // Transform frontend data to backend format
+    const transformedBody = {
+      ...req.body,
+      status: req.body.status ? mapFrontendStatusToBackend(req.body.status) : undefined,
+      priority: req.body.priority ? mapFrontendPriorityToBackend(req.body.priority) : undefined,
+      startDate: req.body.startDate ? `${req.body.startDate}T00:00:00.000Z` : undefined,
+      endDate: req.body.endDate ? `${req.body.endDate}T23:59:59.999Z` : undefined
+    }
+    
+    const updates = updateProjectSchema.parse(transformedBody)
     const userId = req.user!.userId
     const orgId = req.user!.orgId
 
@@ -456,12 +531,15 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Project not found' })
     }
 
+    // Destructure to exclude fields that need special handling
+    const { endDate, dueDate, startDate, ...restUpdates } = updates
+    
     const project = await prisma.project.update({
       where: { id },
       data: {
-        ...updates,
-        startDate: updates.startDate ? new Date(updates.startDate) : undefined,
-        dueDate: updates.dueDate ? new Date(updates.dueDate) : undefined,
+        ...restUpdates,
+        startDate: startDate ? new Date(startDate) : undefined,
+        dueDate: (endDate || dueDate) ? new Date(endDate || dueDate!) : undefined,
       },
       include: {
         owner: {
@@ -504,6 +582,55 @@ router.put('/:id', authenticate, async (req: Request, res: Response) => {
         id,
         { updatedFields: otherUpdates, projectName: project.name }
       )
+    }
+
+    // Send project update notifications
+    try {
+      // Get all project members (excluding updater)
+      const projectMembers = await prisma.projectMember.findMany({
+        where: {
+          projectId: id,
+          userId: { not: userId }
+        },
+        include: {
+          user: {
+            select: { id: true, name: true }
+          }
+        }
+      })
+
+      // Notify project members about important updates
+      if (updates.status || updates.endDate || updates.dueDate || updates.priority) {
+        const updateTypes = []
+        if (updates.status) updateTypes.push(`status to ${mapProjectStatusToFrontend(updates.status)}`)
+        if (updates.endDate || updates.dueDate) updateTypes.push('due date')
+        if (updates.priority) updateTypes.push(`priority to ${mapProjectPriorityToFrontend(updates.priority)}`)
+        
+        const updateMessage = `Project ${updateTypes.join(', ')} updated`
+        
+        for (const member of projectMembers) {
+          await notificationService.createNotification({
+            userId: member.userId,
+            orgId,
+            type: updates.status === 'Completed' ? NotificationType.PROJECT_UPDATED : NotificationType.PROJECT_UPDATED,
+            category: NotificationCategory.PROJECT,
+            title: `Project updated: ${project.name}`,
+            message: `${updateMessage} by ${project.owner.name}`,
+            data: {
+              projectId: project.id,
+              updatedFields: Object.keys(updates),
+              oldStatus: existingProject.status,
+              newStatus: updates.status
+            },
+            entityType: 'Project',
+            entityId: project.id,
+            priority: updates.status === 'Completed' ? NotificationPriority.Medium : NotificationPriority.Low
+          })
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send project update notifications:', notificationError)
+      // Don't fail the request if notifications fail
     }
 
     const transformedProject = transformProjectForFrontend(project)
@@ -699,6 +826,58 @@ router.post('/:id/members', authenticate, async (req: Request, res: Response) =>
         projectName: project.name 
       }
     )
+
+    // Send member addition notifications
+    try {
+      // Notify the new member
+      await notificationService.createNotification({
+        userId: memberUserId,
+        orgId,
+        type: NotificationType.PROJECT_CREATED,
+        category: NotificationCategory.PROJECT,
+        title: `Added to project: ${project.name}`,
+        message: `You have been added to the project "${project.name}" as a ${role}`,
+        data: {
+          projectId: id,
+          role,
+          addedBy: userId
+        },
+        entityType: 'Project',
+        entityId: id,
+        priority: NotificationPriority.Medium
+      })
+
+      // Notify other project members about new member
+      const otherMembers = await prisma.projectMember.findMany({
+        where: {
+          projectId: id,
+          userId: { notIn: [userId, memberUserId] }
+        },
+        select: { userId: true }
+      })
+
+      for (const otherMember of otherMembers) {
+        await notificationService.createNotification({
+          userId: otherMember.userId,
+          orgId,
+          type: NotificationType.PROJECT_UPDATED,
+          category: NotificationCategory.PROJECT,
+          title: `New member in ${project.name}`,
+          message: `${memberUser.name} was added to the project as a ${role}`,
+          data: {
+            projectId: id,
+            newMemberId: memberUserId,
+            newMemberRole: role
+          },
+          entityType: 'Project',
+          entityId: id,
+          priority: NotificationPriority.Low
+        })
+      }
+    } catch (notificationError) {
+      console.error('Failed to send member addition notifications:', notificationError)
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({ member })
   } catch (error) {

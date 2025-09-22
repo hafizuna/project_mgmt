@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PrismaClient, Role, ReportType, SubmissionStatus, StressLevel } from '@prisma/client'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
+import { ReportNotificationService } from '../services/ReportNotificationService.js'
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -624,6 +625,15 @@ router.post('/weekly-plans/:id/submit', authenticate, async (req: Request, res: 
       metadata: { action: 'submitted' }
     })
 
+    // Trigger notification to managers/admins about submission
+    try {
+      const reportNotificationService = ReportNotificationService.getInstance()
+      await reportNotificationService.notifyReportSubmission(id, 'plan')
+    } catch (error) {
+      console.error('Error sending report submission notification:', error)
+      // Don't fail the request if notification fails
+    }
+
     res.json(updatedPlan)
   } catch (error) {
     console.error('Submit weekly plan error:', error)
@@ -682,6 +692,15 @@ router.post('/weekly-reports/:id/submit', authenticate, async (req: Request, res
       entityId: id,
       metadata: { action: 'submitted' }
     })
+
+    // Trigger notification to managers/admins about submission
+    try {
+      const reportNotificationService = ReportNotificationService.getInstance()
+      await reportNotificationService.notifyReportSubmission(id, 'report')
+    } catch (error) {
+      console.error('Error sending report submission notification:', error)
+      // Don't fail the request if notification fails
+    }
 
     res.json(updatedReport)
   } catch (error) {

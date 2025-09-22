@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, Role, MeetingType, MeetingStatus, AttendeeStatus, ActionItemStatus, ProjectMemberRole, TaskPriority } from '@prisma/client'
+import { PrismaClient, Role, MeetingType, MeetingStatus, AttendeeStatus, ActionItemStatus, ProjectMemberRole, TaskPriority, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
+import { NotificationService } from '../services/NotificationService.js'
 
 const router = Router()
 const prisma = new PrismaClient()
+const notificationService = NotificationService.getInstance()
 
 // Validation schemas
 const createMeetingSchema = z.object({
@@ -467,6 +469,75 @@ router.post('/meetings', authenticate, async (req: Request, res: Response) => {
         projectId: meeting.projectId
       }
     )
+
+    // Send meeting scheduling notifications
+    try {
+      const meetingDate = new Date(data.startTime).toLocaleDateString()
+      const meetingTime = new Date(data.startTime).toLocaleTimeString()
+      
+      // Notify all attendees about the scheduled meeting
+      for (const attendee of finalMeeting.attendees) {
+        if (attendee.userId !== userId) { // Don't notify the meeting creator
+          await notificationService.createNotification({
+            userId: attendee.userId,
+            orgId,
+            type: NotificationType.MEETING_SCHEDULED,
+            category: NotificationCategory.MEETING,
+            title: `Meeting scheduled: ${finalMeeting.title}`,
+            message: `You have been invited to "${finalMeeting.title}" on ${meetingDate} at ${meetingTime}`,
+            data: {
+              meetingId: finalMeeting.id,
+              projectId: finalMeeting.projectId,
+              startTime: finalMeeting.startTime,
+              endTime: finalMeeting.endTime,
+              location: finalMeeting.location,
+              meetingLink: finalMeeting.meetingLink,
+              type: finalMeeting.type
+            },
+            entityType: 'Meeting',
+            entityId: finalMeeting.id,
+            priority: NotificationPriority.Medium,
+            scheduledFor: new Date(Date.now() + 60 * 60 * 1000) // Send immediately, reminders will be scheduled separately
+          })
+        }
+      }
+
+      // Notify project members if this is a project meeting
+      if (finalMeeting.projectId) {
+        const projectMembers = await prisma.projectMember.findMany({
+          where: {
+            projectId: finalMeeting.projectId,
+            userId: {
+              notIn: [userId, ...finalMeeting.attendees.map(a => a.userId)]
+            }
+          },
+          select: { userId: true }
+        })
+
+        for (const member of projectMembers) {
+          await notificationService.createNotification({
+            userId: member.userId,
+            orgId,
+            type: NotificationType.MEETING_SCHEDULED,
+            category: NotificationCategory.MEETING,
+            title: `Project meeting scheduled: ${finalMeeting.title}`,
+            message: `A meeting "${finalMeeting.title}" has been scheduled for your project on ${meetingDate}`,
+            data: {
+              meetingId: finalMeeting.id,
+              projectId: finalMeeting.projectId,
+              startTime: finalMeeting.startTime,
+              isProjectMeeting: true
+            },
+            entityType: 'Meeting',
+            entityId: finalMeeting.id,
+            priority: NotificationPriority.Low
+          })
+        }
+      }
+    } catch (notificationError) {
+      console.error('Failed to send meeting scheduling notifications:', notificationError)
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json({ meeting: finalMeeting })
   } catch (error) {
