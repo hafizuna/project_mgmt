@@ -1,8 +1,7 @@
-import { PrismaClient, NotificationType, Role, SubmissionStatus } from '@prisma/client'
+import { NotificationType, Role, SubmissionStatus } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { NotificationService } from './NotificationService.js'
 import { EmailService } from './EmailService.js'
-
-const prisma = new PrismaClient()
 
 export class ReportNotificationService {
   private static instance: ReportNotificationService

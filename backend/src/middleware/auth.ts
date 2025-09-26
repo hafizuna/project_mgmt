@@ -1,8 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { AuthUtils, JwtPayload } from '../lib/auth.js'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/database.js'
 
 // Extend Express Request to include user info
 declare global {

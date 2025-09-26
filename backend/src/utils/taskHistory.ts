@@ -1,6 +1,5 @@
-import { PrismaClient, TaskHistoryAction, TaskStatus, TaskPriority } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { TaskHistoryAction, TaskStatus, TaskPriority } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 
 interface TaskHistoryParams {
   taskId: string

@@ -1,11 +1,9 @@
 #!/usr/bin/env ts-node
 
-import { PrismaClient } from '@prisma/client'
 import { TaskScheduler } from '../services/TaskScheduler.js'
 import { NotificationService } from '../services/NotificationService.js'
 import { ReportNotificationService } from '../services/ReportNotificationService.js'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/database.js'
 
 /**
  * Test script to verify all notification triggers work correctly

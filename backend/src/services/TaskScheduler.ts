@@ -1,19 +1,18 @@
 import * as schedule from 'node-schedule'
 import { ReportNotificationService } from './ReportNotificationService.js'
 import { NotificationService } from './NotificationService.js'
-import { PrismaClient, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
+import { NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 
 export class TaskScheduler {
   private static instance: TaskScheduler
   private reportNotificationService: ReportNotificationService
   private notificationService: NotificationService
-  private prisma: PrismaClient
   private scheduledJobs: Map<string, schedule.Job> = new Map()
 
   private constructor() {
     this.reportNotificationService = ReportNotificationService.getInstance()
     this.notificationService = NotificationService.getInstance()
-    this.prisma = new PrismaClient()
   }
 
   public static getInstance(): TaskScheduler {
@@ -181,7 +180,7 @@ export class TaskScheduler {
       overdue.setHours(0, 0, 0, 0)
 
       // Find tasks due soon (within 24 hours) that haven't been completed
-      const tasksDueSoon = await this.prisma.task.findMany({
+      const tasksDueSoon = await prisma.task.findMany({
         where: {
           dueDate: {
             gte: now,
@@ -205,7 +204,7 @@ export class TaskScheduler {
       })
 
       // Find overdue tasks
-      const overdueTasks = await this.prisma.task.findMany({
+      const overdueTasks = await prisma.task.findMany({
         where: {
           dueDate: {
             lt: overdue
@@ -291,7 +290,7 @@ export class TaskScheduler {
       const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000)
 
       // Find meetings starting in 1 hour
-      const meetingsInOneHour = await this.prisma.meeting.findMany({
+      const meetingsInOneHour = await prisma.meeting.findMany({
         where: {
           startTime: {
             gte: now,
@@ -316,7 +315,7 @@ export class TaskScheduler {
       })
 
       // Find meetings starting in 15 minutes
-      const meetingsInFifteenMinutes = await this.prisma.meeting.findMany({
+      const meetingsInFifteenMinutes = await prisma.meeting.findMany({
         where: {
           startTime: {
             gte: now,
@@ -490,9 +489,6 @@ export class TaskScheduler {
     try {
       console.log('🔧 Initializing report settings for all organizations...')
       
-      const { PrismaClient } = await import('@prisma/client')
-      const prisma = new PrismaClient()
-
       const organizations = await prisma.organization.findMany({
         select: { id: true, name: true }
       })
@@ -500,8 +496,6 @@ export class TaskScheduler {
       for (const org of organizations) {
         await this.reportNotificationService.initializeReportSettings(org.id)
       }
-
-      await prisma.$disconnect()
       console.log(`✅ Report settings initialized for ${organizations.length} organizations`)
     } catch (error) {
       console.error('❌ Error initializing report settings:', error)

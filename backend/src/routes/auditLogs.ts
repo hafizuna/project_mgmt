@@ -1,10 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/database.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // All audit log routes require authentication
 router.use(authenticate);

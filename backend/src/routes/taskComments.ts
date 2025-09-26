@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, TaskHistoryAction, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
+import { TaskHistoryAction, NotificationType, NotificationCategory, NotificationPriority } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { authenticate } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 import { NotificationService } from '../services/NotificationService.js'
 
 const router = Router()
-const prisma = new PrismaClient()
 const notificationService = NotificationService.getInstance()
 
 // Validation schemas

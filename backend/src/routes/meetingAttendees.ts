@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, Role, AttendeeStatus } from '@prisma/client'
+import { Role, AttendeeStatus } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { authenticate } from '../middleware/auth.js'
 import { AuditLogger } from '../utils/auditLogger.js'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 // Validation schemas
 const addAttendeeSchema = z.object({

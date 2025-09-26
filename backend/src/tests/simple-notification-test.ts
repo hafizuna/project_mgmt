@@ -1,8 +1,6 @@
 #!/usr/bin/env ts-node
 
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/database.js'
 
 /**
  * Simple test to verify notification system works

@@ -1,6 +1,5 @@
-import { PrismaClient, NotificationType, NotificationCategory } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { NotificationType, NotificationCategory } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 
 export interface TemplateData {
   id: string

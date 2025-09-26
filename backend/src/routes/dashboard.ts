@@ -1,11 +1,10 @@
 import express from 'express'
 import { z } from 'zod'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 
 const router = express.Router()
-const prisma = new PrismaClient()
 
 // Query parameter schema for date filtering
 const dashboardQuerySchema = z.object({

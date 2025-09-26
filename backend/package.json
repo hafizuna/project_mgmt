@@ -9,6 +9,10 @@
     "build": "tsc -p .",
     "start": "node dist/server.js",
     "lint": "eslint .",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -30,15 +34,21 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@eslint/js": "^9.36.0",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^22.16.5",
+    "@types/supertest": "^6.0.3",
+    "@vitest/ui": "^3.2.4",
     "eslint": "^9.32.0",
     "prisma": "^5.20.0",
+    "supertest": "^7.1.4",
     "tsx": "^4.19.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.44.1",
+    "vitest": "^3.2.4"
   }
 }

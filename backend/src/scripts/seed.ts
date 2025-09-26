@@ -1,8 +1,6 @@
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
 import { AuthUtils } from '../lib/auth.js'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/database.js'
 
 async function seed() {
   try {

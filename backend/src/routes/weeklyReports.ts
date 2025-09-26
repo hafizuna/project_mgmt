@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express'
 import { z } from 'zod'
-import { PrismaClient, Role, ReportType, SubmissionStatus, StressLevel } from '@prisma/client'
+import { Role, ReportType, SubmissionStatus, StressLevel } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { authenticate, requireRole } from '../middleware/auth.js'
 import { AuditLogger, AUDIT_ACTIONS } from '../utils/auditLogger.js'
 import { ReportNotificationService } from '../services/ReportNotificationService.js'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 // Validation schemas
 const createWeeklyPlanSchema = z.object({

@@ -1,8 +1,6 @@
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
 import { AuthUtils } from './src/lib/auth.js'
-
-const prisma = new PrismaClient()
+import { prisma } from './src/lib/database.js'
 
 async function resetAdminPassword() {
   try {

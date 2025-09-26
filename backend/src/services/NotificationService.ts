@@ -1,8 +1,7 @@
-import { PrismaClient, NotificationType, NotificationCategory, NotificationPriority, NotificationChannel, User } from '@prisma/client'
+import { NotificationType, NotificationCategory, NotificationPriority, NotificationChannel, User } from '@prisma/client'
+import { prisma } from '../lib/database.js'
 import { EmailService } from './EmailService.js'
 import { TemplateService } from './TemplateService.js'
-
-const prisma = new PrismaClient()
 
 export interface CreateNotificationData {
   userId: string
