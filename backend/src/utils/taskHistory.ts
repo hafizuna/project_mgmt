@@ -105,6 +105,8 @@ export class TaskHistoryLogger {
         return 'Review'
       case TaskStatus.Done:
         return 'Done'
+      case TaskStatus.OnHold:
+        return 'On Hold'
       default:
         return status
     }
@@ -182,6 +184,23 @@ export class TaskHistoryLogger {
       field,
       oldValue,
       newValue
+    })
+  }
+
+  // Helper method to track status changes (for bulk operations)
+  static async logStatusChange(
+    taskId: string,
+    userId: string,
+    oldStatus: TaskStatus,
+    newStatus: TaskStatus
+  ): Promise<void> {
+    await this.log({
+      taskId,
+      userId,
+      action: TaskHistoryAction.STATUS_CHANGED,
+      field: 'status',
+      oldValue: oldStatus,
+      newValue: newStatus
     })
   }
 }

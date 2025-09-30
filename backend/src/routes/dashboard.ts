@@ -194,7 +194,7 @@ router.get('/stats', authenticate, async (req, res) => {
       req.user!.userId,
       organizationId,
       'dashboard.stats_viewed',
-      null,
+      undefined,
       { query }
     )
 
@@ -271,7 +271,8 @@ router.get('/projects', authenticate, async (req, res) => {
         'Todo': 0,        // 0% progress
         'InProgress': 0.5, // 50% progress
         'Review': 0.8,    // 80% progress
-        'Done': 1.0       // 100% progress
+        'Done': 1.0,      // 100% progress
+        'OnHold': 0       // 0% progress (blocked)
       }
       
       const totalProgress = project.tasks.reduce((sum, task) => {

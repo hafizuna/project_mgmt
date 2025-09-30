@@ -13,6 +13,7 @@ import AdminReports from "./pages/Admin/AdminReports";
 import AuditLogs from "./pages/Admin/AuditLogs";
 import { ProjectsList, ProjectDetail, ProjectForm } from "./pages/Projects";
 import { TasksList, TaskForm, TaskDetail as TaskDetailPage } from "./pages/Tasks";
+import KanbanBoard from "./pages/Tasks/KanbanBoard";
 import Meetings from "./pages/Meetings";
 import CreateMeeting from "./pages/CreateMeeting";
 import MeetingDetail from "./pages/MeetingDetail";
@@ -92,6 +93,7 @@ const App = () => (
             
             {/* Tasks Routes */}
             <Route path="tasks" element={<TasksList />} />
+            <Route path="tasks/board" element={<KanbanBoard />} />
             <Route path="tasks/new" element={<TaskForm />} />
             <Route path="tasks/:id" element={<TaskDetailPage />} />
             <Route path="tasks/:id/edit" element={<TaskForm />} />

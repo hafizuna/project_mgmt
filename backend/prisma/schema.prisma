@@ -204,6 +204,7 @@ enum TaskStatus {
   InProgress
   Review
   Done
+  OnHold
 }
 
 enum TaskPriority {

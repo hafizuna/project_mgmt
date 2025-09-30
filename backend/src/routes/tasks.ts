@@ -56,7 +56,8 @@ const mapTaskStatusToFrontend = (status: TaskStatus): string => {
     [TaskStatus.Todo]: 'TODO',
     [TaskStatus.InProgress]: 'IN_PROGRESS', 
     [TaskStatus.Review]: 'REVIEW',
-    [TaskStatus.Done]: 'DONE'
+    [TaskStatus.Done]: 'DONE',
+    [TaskStatus.OnHold]: 'ON_HOLD'
   }
   return statusMap[status] || status
 }
@@ -77,7 +78,8 @@ const mapFrontendStatusToBackend = (status: string): TaskStatus => {
     'TODO': TaskStatus.Todo,
     'IN_PROGRESS': TaskStatus.InProgress,
     'REVIEW': TaskStatus.Review,
-    'DONE': TaskStatus.Done
+    'DONE': TaskStatus.Done,
+    'ON_HOLD': TaskStatus.OnHold
   }
   return statusMap[status] || TaskStatus.Todo
 }
@@ -155,34 +157,65 @@ async function checkTaskAccess(
   taskId: string,
   requiredAccess: 'read' | 'write' | 'admin'
 ) {
-  // Get task with project info
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: {
-      project: {
-        select: {
-          id: true,
-          orgId: true,
-          ownerId: true,
+  // Get task with project info and user info
+  const [task, user] = await Promise.all([
+    prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        project: {
+          select: {
+            id: true,
+            orgId: true,
+            ownerId: true,
+          }
         }
       }
-    }
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true }
+    })
+  ])
+
+  if (!task || task.project.orgId !== orgId || !user) return false
+
+  // Admin has access to all tasks in their organization
+  if (user.role === Role.Admin) return true
+
+  // Check if user is project owner
+  if (task.project.ownerId === userId) return true
+
+  // Check project membership
+  const projectMembership = await prisma.projectMember.findUnique({
+    where: {
+      projectId_userId: {
+        projectId: task.project.id,
+        userId: userId
+      }
+    },
+    select: { role: true }
   })
 
-  if (!task || task.project.orgId !== orgId) return false
+  if (!projectMembership) return false
 
-  // Check project access first
-  const hasProjectAccess = await checkProjectAccess(userId, orgId, task.project.id, requiredAccess)
-  if (!hasProjectAccess) return false
+  // Role-based task access logic
+  if (user.role === Role.Manager || projectMembership.role === ProjectMemberRole.Manager) {
+    // Managers can access all tasks in their projects
+    return true
+  }
 
-  // For write access, also check if user is assignee or reporter
-  if (requiredAccess === 'write') {
-    if (task.assigneeId === userId || task.reporterId === userId) {
-      return true
+  if (user.role === Role.Team) {
+    // Team members can only access tasks assigned to them or tasks they created
+    if (requiredAccess === 'read') {
+      return task.assigneeId === userId || task.reporterId === userId
+    }
+    
+    if (requiredAccess === 'write') {
+      return task.assigneeId === userId || task.reporterId === userId
     }
   }
 
-  return hasProjectAccess
+  return false
 }
 
 /**
@@ -198,6 +231,7 @@ router.get('/projects/:projectId/tasks', authenticate, async (req: Request, res:
 
     const userId = req.user!.userId
     const orgId = req.user!.orgId
+    const userRole = req.user!.role
 
     // Check project access
     const hasAccess = await checkProjectAccess(userId, orgId, projectId, 'read')
@@ -205,18 +239,48 @@ router.get('/projects/:projectId/tasks', authenticate, async (req: Request, res:
       return res.status(403).json({ error: 'Access denied to this project' })
     }
 
-    // Build where clause
+    // Build where clause with role-based filtering
     let where: any = {
       projectId: projectId,
       project: { orgId: orgId }
     }
 
-    // Apply filters
-    if (search) {
+    // Apply role-based task filtering
+    if (userRole === Role.Team) {
+      // Team members can only see tasks assigned to them OR tasks they created
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { assigneeId: userId },
+        { reporterId: userId }
       ]
+    }
+    // Admin and Manager can see all tasks in projects they have access to
+
+    // Apply search filter (combine with role filtering if needed)
+    if (search) {
+      const searchCondition = {
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ]
+      }
+      
+      if (userRole === Role.Team) {
+        // Combine role filtering with search filtering
+        where.AND = [
+          {
+            OR: [
+              { assigneeId: userId },
+              { reporterId: userId }
+            ]
+          },
+          searchCondition
+        ]
+        // Remove the role OR from the main where clause
+        delete where.OR
+      } else {
+        // For Admin/Manager, just apply search
+        where = { ...where, ...searchCondition }
+      }
     }
 
     if (status) {
@@ -927,6 +991,117 @@ router.put('/tasks/:id/assign', authenticate, async (req: Request, res: Response
       return res.status(400).json({ error: 'Validation error', details: error.errors })
     }
     console.error('Assign task error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+/**
+ * PUT /tasks/bulk-status-update
+ * Update multiple task statuses and positions in one request
+ * Role access: Users with write access to tasks
+ */
+router.put('/tasks/bulk-status-update', authenticate, async (req: Request, res: Response) => {
+  try {
+    const bulkUpdateSchema = z.object({
+      updates: z.array(z.object({
+        taskId: z.string().uuid('Invalid task ID'),
+        status: z.string(),
+        position: z.number().int().optional()
+      }))
+    })
+    
+    const { updates } = bulkUpdateSchema.parse(req.body)
+    const userId = req.user!.userId
+    const orgId = req.user!.orgId
+
+    // Convert frontend status to backend status for all updates
+    const backendUpdates = updates.map(update => ({
+      ...update,
+      status: mapFrontendStatusToBackend(update.status)
+    }))
+
+    // Validate access to all tasks before making any changes
+    for (const update of backendUpdates) {
+      const hasAccess = await checkTaskAccess(userId, orgId, update.taskId, 'write')
+      if (!hasAccess) {
+        return res.status(403).json({ 
+          error: `Access denied to update task ${update.taskId}` 
+        })
+      }
+    }
+
+    // Get existing tasks for history logging
+    const existingTasks = await prisma.task.findMany({
+      where: {
+        id: { in: backendUpdates.map(u => u.taskId) }
+      },
+      select: {
+        id: true,
+        status: true,
+        position: true,
+        title: true,
+        projectId: true
+      }
+    })
+
+    // Update all tasks in a transaction
+    const results = await prisma.$transaction(
+      backendUpdates.map(update => {
+        const updateData: any = { status: update.status }
+        if (update.position !== undefined) {
+          updateData.position = update.position
+        }
+        
+        return prisma.task.update({
+          where: { id: update.taskId },
+          data: updateData,
+        })
+      })
+    )
+
+    // Log history for each changed task
+    for (let i = 0; i < backendUpdates.length; i++) {
+      const update = backendUpdates[i]
+      const existingTask = existingTasks.find(t => t.id === update.taskId)
+      
+      if (existingTask && existingTask.status !== update.status) {
+        await TaskHistoryLogger.logStatusChange(
+          update.taskId,
+          userId,
+          existingTask.status,
+          update.status
+        )
+        
+        // Log audit action
+        await AuditLogger.logTaskAction(
+          req,
+          userId,
+          orgId,
+          AUDIT_ACTIONS.TASK_STATUS_CHANGED,
+          update.taskId,
+          {
+            oldStatus: existingTask.status,
+            newStatus: update.status,
+            taskTitle: existingTask.title,
+            projectId: existingTask.projectId
+          }
+        )
+      }
+    }
+
+    // Send notifications for status changes if needed
+    // (This could be enhanced to batch notifications)
+    
+    res.json({ 
+      success: true, 
+      updatedTasks: results.length,
+      message: `Successfully updated ${results.length} tasks`
+    })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors })
+    }
+    console.error('Bulk status update error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

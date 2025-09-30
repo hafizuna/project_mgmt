@@ -38,7 +38,8 @@ export enum TaskStatus {
   TODO = 'TODO',
   IN_PROGRESS = 'IN_PROGRESS',
   REVIEW = 'REVIEW',
-  DONE = 'DONE'
+  DONE = 'DONE',
+  ON_HOLD = 'ON_HOLD'
 }
 
 export enum TaskPriority {
@@ -132,5 +133,11 @@ export const tasksApi = {
   assignTask: async (id: string, data: AssignTaskRequest): Promise<Task> => {
     const response = await apiClient.put(`/tasks/${id}/assign`, data);
     return response.task;
+  },
+
+  // Bulk update task statuses (for drag and drop)
+  bulkUpdateStatus: async (updates: { taskId: string; status: string; position?: number }[]) => {
+    const response = await apiClient.put('/tasks/bulk-status-update', { updates });
+    return response;
   },
 };

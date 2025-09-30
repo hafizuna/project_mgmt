@@ -13,6 +13,7 @@ import {
   Database,
   Bell,
   TestTube,
+  LayoutGrid,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ const navigationItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Task Board", url: "/tasks/board", icon: LayoutGrid },
   { title: "Timesheet", url: "/timesheet", icon: Clock },
   { title: "Messages", url: "/messages", icon: MessageSquare },
   { title: "Reports", url: "/reports", icon: BarChart3 },

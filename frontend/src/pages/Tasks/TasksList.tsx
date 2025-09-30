@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, Edit, Trash2, User, Calendar, CheckSquare, Clock } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, User, Calendar, CheckSquare, Clock, LayoutGrid } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -183,12 +183,26 @@ export default function TasksList() {
             </p>
           )}
         </div>
-        {selectedProjectId && canManageTasks && (
-          <Button onClick={() => navigate(`/tasks/new?project=${selectedProjectId}`)}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Task
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* Board View Button */}
+          {selectedProjectId && (
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/tasks/board?project=${selectedProjectId}`)}
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Board View
+            </Button>
+          )}
+          
+          {/* New Task Button */}
+          {selectedProjectId && canManageTasks && (
+            <Button onClick={() => navigate(`/tasks/new?project=${selectedProjectId}`)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Task
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Project Selector */}
