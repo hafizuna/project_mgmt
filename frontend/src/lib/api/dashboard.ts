@@ -131,6 +131,7 @@ export interface DashboardQueryParams {
   dateFrom?: string
   dateTo?: string
   projectId?: string
+  assignedToMe?: boolean
 }
 
 class DashboardAPI {
@@ -142,6 +143,7 @@ class DashboardAPI {
     if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom)
     if (params?.dateTo) searchParams.set('dateTo', params.dateTo)
     if (params?.projectId) searchParams.set('projectId', params.projectId)
+    if (params?.assignedToMe) searchParams.set('assignedToMe', params.assignedToMe.toString())
 
     const query = searchParams.toString()
     const url = query ? `/dashboard/stats?${query}` : '/dashboard/stats'
@@ -152,22 +154,49 @@ class DashboardAPI {
   /**
    * Get project progress data
    */
-  async getProjects(): Promise<DashboardProject[]> {
-    return await apiClient.get('/dashboard/projects')
+  async getProjects(params?: DashboardQueryParams): Promise<DashboardProject[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom)
+    if (params?.dateTo) searchParams.set('dateTo', params.dateTo)
+    if (params?.projectId) searchParams.set('projectId', params.projectId)
+    if (params?.assignedToMe) searchParams.set('assignedToMe', params.assignedToMe.toString())
+
+    const query = searchParams.toString()
+    const url = query ? `/dashboard/projects?${query}` : '/dashboard/projects'
+    
+    return await apiClient.get(url)
   }
 
   /**
    * Get recent and priority tasks
    */
-  async getTasks(): Promise<DashboardTask[]> {
-    return await apiClient.get('/dashboard/tasks')
+  async getTasks(params?: DashboardQueryParams): Promise<DashboardTask[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom)
+    if (params?.dateTo) searchParams.set('dateTo', params.dateTo)
+    if (params?.projectId) searchParams.set('projectId', params.projectId)
+    if (params?.assignedToMe) searchParams.set('assignedToMe', params.assignedToMe.toString())
+
+    const query = searchParams.toString()
+    const url = query ? `/dashboard/tasks?${query}` : '/dashboard/tasks'
+    
+    return await apiClient.get(url)
   }
 
   /**
    * Get upcoming deadlines (tasks and meetings)
    */
-  async getDeadlines(): Promise<DashboardDeadline[]> {
-    return await apiClient.get('/dashboard/deadlines')
+  async getDeadlines(params?: DashboardQueryParams): Promise<DashboardDeadline[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.dateFrom) searchParams.set('dateFrom', params.dateFrom)
+    if (params?.dateTo) searchParams.set('dateTo', params.dateTo)
+    if (params?.projectId) searchParams.set('projectId', params.projectId)
+    if (params?.assignedToMe) searchParams.set('assignedToMe', params.assignedToMe.toString())
+
+    const query = searchParams.toString()
+    const url = query ? `/dashboard/deadlines?${query}` : '/dashboard/deadlines'
+    
+    return await apiClient.get(url)
   }
 
   /**
@@ -215,19 +244,19 @@ export const dashboardQueries = {
     queryFn: () => dashboardAPI.getStats(params),
   }),
   
-  projects: () => ({
-    queryKey: ['dashboard', 'projects'],
-    queryFn: () => dashboardAPI.getProjects(),
+  projects: (params?: DashboardQueryParams) => ({
+    queryKey: ['dashboard', 'projects', params],
+    queryFn: () => dashboardAPI.getProjects(params),
   }),
   
-  tasks: () => ({
-    queryKey: ['dashboard', 'tasks'],
-    queryFn: () => dashboardAPI.getTasks(),
+  tasks: (params?: DashboardQueryParams) => ({
+    queryKey: ['dashboard', 'tasks', params],
+    queryFn: () => dashboardAPI.getTasks(params),
   }),
   
-  deadlines: () => ({
-    queryKey: ['dashboard', 'deadlines'],
-    queryFn: () => dashboardAPI.getDeadlines(),
+  deadlines: (params?: DashboardQueryParams) => ({
+    queryKey: ['dashboard', 'deadlines', params],
+    queryFn: () => dashboardAPI.getDeadlines(params),
   }),
   
   activity: () => ({

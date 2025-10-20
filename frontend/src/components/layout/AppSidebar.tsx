@@ -29,19 +29,28 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/lib/stores/auth";
 
-const navigationItems = [
+// Base navigation items for all users
+const baseNavigationItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projects", url: "/projects", icon: FolderKanban },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Task Board", url: "/tasks/board", icon: LayoutGrid },
-  { title: "Timesheet", url: "/timesheet", icon: Clock },
-  { title: "Messages", url: "/messages", icon: MessageSquare },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Meetings", url: "/meetings", icon: Calendar },
-  { title: "Team", url: "/team", icon: Users },
+];
+
+// Manager+ specific navigation items
+const managerNavigationItems = [
+  { title: "Reports", url: "/reports", icon: BarChart3 },
+];
+
+// Team member specific items
+const teamNavigationItems = [
+  { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Timesheet", url: "/timesheet", icon: Clock },
 ];
 
 const adminItems = [
+  { title: "Team Management", url: "/team", icon: Users },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Organization", url: "/admin/organization", icon: Database },
   { title: "Reports", url: "/admin/reports", icon: BarChart3 },
@@ -65,6 +74,26 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   
   const isAdmin = user?.role === 'Admin';
+  const isManager = user?.role === 'Manager';
+  const isTeam = user?.role === 'Team';
+  
+  // Build navigation items based on user role
+  const getNavigationItems = () => {
+    let items = [...baseNavigationItems];
+    
+    // Add role-specific items
+    if (isManager) {
+      items = [...items, ...managerNavigationItems];
+    }
+    
+    if (isTeam) {
+      items = [...items, ...teamNavigationItems];
+    }
+    
+    return items;
+  };
+  
+  const navigationItems = getNavigationItems();
 
   const isActive = (path: string) => {
     if (path === "/") return currentPath === "/";

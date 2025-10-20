@@ -33,7 +33,13 @@ export function NotificationItem({
 }: NotificationItemProps) {
   const { markAsRead, deleteNotification } = useNotificationStore()
 
-  const config = NOTIFICATION_ICONS[notification.type]
+  // Handle missing notification icon configuration with fallback
+  const config = NOTIFICATION_ICONS[notification.type] || {
+    type: notification.type,
+    icon: 'Bell',
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-100'
+  }
   const IconComponent = (LucideIcons as any)[config.icon] || LucideIcons.Bell
 
   const handleItemClick = () => {
@@ -60,13 +66,13 @@ export function NotificationItem({
 
   const getPriorityBadge = (priority: NotificationPriority) => {
     switch (priority) {
-      case NotificationPriority.URGENT:
-        return <Badge variant="destructive" className="h-5 px-1.5 text-xs">Urgent</Badge>
-      case NotificationPriority.HIGH:
+      case NotificationPriority.Critical:
+        return <Badge variant="destructive" className="h-5 px-1.5 text-xs">Critical</Badge>
+      case NotificationPriority.High:
         return <Badge variant="secondary" className="h-5 px-1.5 text-xs bg-orange-100 text-orange-700">High</Badge>
-      case NotificationPriority.NORMAL:
+      case NotificationPriority.Medium:
         return null
-      case NotificationPriority.LOW:
+      case NotificationPriority.Low:
         return <Badge variant="outline" className="h-5 px-1.5 text-xs">Low</Badge>
       default:
         return null
@@ -122,7 +128,7 @@ export function NotificationItem({
           </div>
 
           {/* Priority badge */}
-          {notification.priority !== NotificationPriority.NORMAL && (
+          {notification.priority !== NotificationPriority.Medium && (
             <div className="flex-shrink-0">
               {getPriorityBadge(notification.priority)}
             </div>
@@ -138,7 +144,7 @@ export function NotificationItem({
             
             {/* Type label */}
             <Badge variant="outline" className="h-4 px-1.5 text-xs">
-              {NOTIFICATION_LABELS[notification.type]}
+              {NOTIFICATION_LABELS[notification.type] || notification.type.replace(/_/g, ' ')}
             </Badge>
           </div>
 
@@ -198,7 +204,14 @@ export function NotificationItemCompact({
   onClick
 }: NotificationItemProps) {
   const { markAsRead } = useNotificationStore()
-  const config = NOTIFICATION_ICONS[notification.type]
+  
+  // Handle missing notification icon configuration with fallback
+  const config = NOTIFICATION_ICONS[notification.type] || {
+    type: notification.type,
+    icon: 'Bell',
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-100'
+  }
   const IconComponent = (LucideIcons as any)[config.icon] || LucideIcons.Bell
 
   const handleClick = () => {

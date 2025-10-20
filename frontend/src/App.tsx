@@ -22,6 +22,7 @@ import Reports from "./pages/Reports/Reports";
 import { Team } from "./pages/Team";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { NotificationCenter, NotificationPreferences, NotificationDemo } from "./components/notifications";
+import { NotificationTest } from "./components/notifications/NotificationTest";
 
 const queryClient = new QueryClient();
 
@@ -107,13 +108,21 @@ const App = () => (
             {/* Reports Routes */}
             <Route path="reports" element={<Reports />} />
             
-            {/* Team Routes */}
-            <Route path="team" element={<Team />} />
+            {/* Team Routes - Admin Only */}
+            <Route 
+              path="team" 
+              element={
+                <ProtectedRoute requiredRoles={['Admin']}>
+                  <Team />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Notification Routes */}
             <Route path="notifications" element={<NotificationCenter />} />
             <Route path="notifications/preferences" element={<NotificationPreferences />} />
             <Route path="notifications/demo" element={<NotificationDemo />} />
+            <Route path="notifications/test" element={<NotificationTest />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           </Route>

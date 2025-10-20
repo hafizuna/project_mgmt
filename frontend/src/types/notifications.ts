@@ -1,22 +1,41 @@
 export enum NotificationType {
+  // Task Related
   TASK_ASSIGNED = 'TASK_ASSIGNED',
   TASK_DUE_SOON = 'TASK_DUE_SOON',
   TASK_OVERDUE = 'TASK_OVERDUE',
-  TASK_COMPLETED = 'TASK_COMPLETED',
-  TASK_COMMENTED = 'TASK_COMMENTED',
+  TASK_STATUS_CHANGED = 'TASK_STATUS_CHANGED',
+  TASK_COMMENT_ADDED = 'TASK_COMMENT_ADDED',
+  TASK_MENTION = 'TASK_MENTION',
+  
+  // Project Related
   PROJECT_CREATED = 'PROJECT_CREATED',
   PROJECT_UPDATED = 'PROJECT_UPDATED',
-  PROJECT_MILESTONE = 'PROJECT_MILESTONE',
+  PROJECT_MEMBER_ADDED = 'PROJECT_MEMBER_ADDED',
+  PROJECT_DEADLINE_APPROACHING = 'PROJECT_DEADLINE_APPROACHING',
+  
+  // Meeting Related
   MEETING_SCHEDULED = 'MEETING_SCHEDULED',
   MEETING_REMINDER = 'MEETING_REMINDER',
-  MEETING_STARTED = 'MEETING_STARTED',
+  MEETING_CANCELLED = 'MEETING_CANCELLED',
+  MEETING_UPDATED = 'MEETING_UPDATED',
+  MEETING_STARTING_SOON = 'MEETING_STARTING_SOON',
+  
+  // Report Related
   WEEKLY_PLAN_DUE = 'WEEKLY_PLAN_DUE',
   WEEKLY_PLAN_OVERDUE = 'WEEKLY_PLAN_OVERDUE',
   WEEKLY_REPORT_DUE = 'WEEKLY_REPORT_DUE',
   WEEKLY_REPORT_OVERDUE = 'WEEKLY_REPORT_OVERDUE',
   REPORT_SUBMISSION_RECEIVED = 'REPORT_SUBMISSION_RECEIVED',
   LOW_COMPLIANCE_ALERT = 'LOW_COMPLIANCE_ALERT',
-  SYSTEM_ANNOUNCEMENT = 'SYSTEM_ANNOUNCEMENT'
+  
+  // System Related
+  SYSTEM_MAINTENANCE = 'SYSTEM_MAINTENANCE',
+  ACCOUNT_UPDATED = 'ACCOUNT_UPDATED',
+  SECURITY_ALERT = 'SECURITY_ALERT',
+  WELCOME = 'WELCOME',
+  
+  // General
+  CUSTOM = 'CUSTOM'
 }
 
 export enum NotificationChannel {
@@ -34,10 +53,10 @@ export enum NotificationCategory {
 }
 
 export enum NotificationPriority {
-  LOW = 'LOW',
-  NORMAL = 'NORMAL',
-  HIGH = 'HIGH',
-  URGENT = 'URGENT'
+  Low = 'Low',
+  Medium = 'Medium',
+  High = 'High',
+  Critical = 'Critical'
 }
 
 export interface NotificationUser {
@@ -170,6 +189,7 @@ export interface NotificationIcon {
 }
 
 export const NOTIFICATION_ICONS: Record<NotificationType, NotificationIcon> = {
+  // Task Related
   [NotificationType.TASK_ASSIGNED]: {
     type: NotificationType.TASK_ASSIGNED,
     icon: 'UserPlus',
@@ -188,21 +208,29 @@ export const NOTIFICATION_ICONS: Record<NotificationType, NotificationIcon> = {
     color: 'text-red-600',
     bgColor: 'bg-red-100'
   },
-  [NotificationType.TASK_COMPLETED]: {
-    type: NotificationType.TASK_COMPLETED,
-    icon: 'CheckCircle',
+  [NotificationType.TASK_STATUS_CHANGED]: {
+    type: NotificationType.TASK_STATUS_CHANGED,
+    icon: 'Activity',
     color: 'text-green-600',
     bgColor: 'bg-green-100'
   },
-  [NotificationType.TASK_COMMENTED]: {
-    type: NotificationType.TASK_COMMENTED,
+  [NotificationType.TASK_COMMENT_ADDED]: {
+    type: NotificationType.TASK_COMMENT_ADDED,
     icon: 'MessageSquare',
     color: 'text-purple-600',
     bgColor: 'bg-purple-100'
   },
+  [NotificationType.TASK_MENTION]: {
+    type: NotificationType.TASK_MENTION,
+    icon: 'AtSign',
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-100'
+  },
+  
+  // Project Related
   [NotificationType.PROJECT_CREATED]: {
     type: NotificationType.PROJECT_CREATED,
-    icon: 'Folder',
+    icon: 'FolderPlus',
     color: 'text-blue-600',
     bgColor: 'bg-blue-100'
   },
@@ -212,12 +240,20 @@ export const NOTIFICATION_ICONS: Record<NotificationType, NotificationIcon> = {
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-100'
   },
-  [NotificationType.PROJECT_MILESTONE]: {
-    type: NotificationType.PROJECT_MILESTONE,
-    icon: 'Target',
+  [NotificationType.PROJECT_MEMBER_ADDED]: {
+    type: NotificationType.PROJECT_MEMBER_ADDED,
+    icon: 'UserPlus',
     color: 'text-emerald-600',
     bgColor: 'bg-emerald-100'
   },
+  [NotificationType.PROJECT_DEADLINE_APPROACHING]: {
+    type: NotificationType.PROJECT_DEADLINE_APPROACHING,
+    icon: 'Calendar',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100'
+  },
+  
+  // Meeting Related
   [NotificationType.MEETING_SCHEDULED]: {
     type: NotificationType.MEETING_SCHEDULED,
     icon: 'Calendar',
@@ -230,12 +266,26 @@ export const NOTIFICATION_ICONS: Record<NotificationType, NotificationIcon> = {
     color: 'text-orange-600',
     bgColor: 'bg-orange-100'
   },
-  [NotificationType.MEETING_STARTED]: {
-    type: NotificationType.MEETING_STARTED,
+  [NotificationType.MEETING_CANCELLED]: {
+    type: NotificationType.MEETING_CANCELLED,
+    icon: 'CalendarX',
+    color: 'text-red-600',
+    bgColor: 'bg-red-100'
+  },
+  [NotificationType.MEETING_UPDATED]: {
+    type: NotificationType.MEETING_UPDATED,
+    icon: 'CalendarClock',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100'
+  },
+  [NotificationType.MEETING_STARTING_SOON]: {
+    type: NotificationType.MEETING_STARTING_SOON,
     icon: 'Video',
     color: 'text-pink-600',
     bgColor: 'bg-pink-100'
   },
+  
+  // Report Related
   [NotificationType.WEEKLY_PLAN_DUE]: {
     type: NotificationType.WEEKLY_PLAN_DUE,
     icon: 'Calendar',
@@ -272,31 +322,74 @@ export const NOTIFICATION_ICONS: Record<NotificationType, NotificationIcon> = {
     color: 'text-red-600',
     bgColor: 'bg-red-100'
   },
-  [NotificationType.SYSTEM_ANNOUNCEMENT]: {
-    type: NotificationType.SYSTEM_ANNOUNCEMENT,
-    icon: 'Megaphone',
+  
+  // System Related
+  [NotificationType.SYSTEM_MAINTENANCE]: {
+    type: NotificationType.SYSTEM_MAINTENANCE,
+    icon: 'Settings',
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-100'
+  },
+  [NotificationType.ACCOUNT_UPDATED]: {
+    type: NotificationType.ACCOUNT_UPDATED,
+    icon: 'User',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100'
+  },
+  [NotificationType.SECURITY_ALERT]: {
+    type: NotificationType.SECURITY_ALERT,
+    icon: 'Shield',
+    color: 'text-red-600',
+    bgColor: 'bg-red-100'
+  },
+  [NotificationType.WELCOME]: {
+    type: NotificationType.WELCOME,
+    icon: 'Heart',
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-100'
+  },
+  [NotificationType.CUSTOM]: {
+    type: NotificationType.CUSTOM,
+    icon: 'Bell',
     color: 'text-gray-600',
     bgColor: 'bg-gray-100'
   }
 }
 
 export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
+  // Task Related
   [NotificationType.TASK_ASSIGNED]: 'Task Assigned',
   [NotificationType.TASK_DUE_SOON]: 'Task Due Soon',
   [NotificationType.TASK_OVERDUE]: 'Task Overdue',
-  [NotificationType.TASK_COMPLETED]: 'Task Completed',
-  [NotificationType.TASK_COMMENTED]: 'Task Commented',
+  [NotificationType.TASK_STATUS_CHANGED]: 'Task Updated',
+  [NotificationType.TASK_COMMENT_ADDED]: 'Task Comment',
+  [NotificationType.TASK_MENTION]: 'Task Mention',
+  
+  // Project Related
   [NotificationType.PROJECT_CREATED]: 'Project Created',
   [NotificationType.PROJECT_UPDATED]: 'Project Updated',
-  [NotificationType.PROJECT_MILESTONE]: 'Project Milestone',
+  [NotificationType.PROJECT_MEMBER_ADDED]: 'Member Added',
+  [NotificationType.PROJECT_DEADLINE_APPROACHING]: 'Deadline Approaching',
+  
+  // Meeting Related
   [NotificationType.MEETING_SCHEDULED]: 'Meeting Scheduled',
   [NotificationType.MEETING_REMINDER]: 'Meeting Reminder',
-  [NotificationType.MEETING_STARTED]: 'Meeting Started',
+  [NotificationType.MEETING_CANCELLED]: 'Meeting Cancelled',
+  [NotificationType.MEETING_UPDATED]: 'Meeting Updated',
+  [NotificationType.MEETING_STARTING_SOON]: 'Meeting Starting',
+  
+  // Report Related
   [NotificationType.WEEKLY_PLAN_DUE]: 'Weekly Plan Due',
-  [NotificationType.WEEKLY_PLAN_OVERDUE]: 'Weekly Plan Overdue',
+  [NotificationType.WEEKLY_PLAN_OVERDUE]: 'Plan Overdue',
   [NotificationType.WEEKLY_REPORT_DUE]: 'Weekly Report Due',
-  [NotificationType.WEEKLY_REPORT_OVERDUE]: 'Weekly Report Overdue',
+  [NotificationType.WEEKLY_REPORT_OVERDUE]: 'Report Overdue',
   [NotificationType.REPORT_SUBMISSION_RECEIVED]: 'Report Submitted',
-  [NotificationType.LOW_COMPLIANCE_ALERT]: 'Low Compliance Alert',
-  [NotificationType.SYSTEM_ANNOUNCEMENT]: 'System Announcement'
+  [NotificationType.LOW_COMPLIANCE_ALERT]: 'Low Compliance',
+  
+  // System Related
+  [NotificationType.SYSTEM_MAINTENANCE]: 'System Maintenance',
+  [NotificationType.ACCOUNT_UPDATED]: 'Account Updated',
+  [NotificationType.SECURITY_ALERT]: 'Security Alert',
+  [NotificationType.WELCOME]: 'Welcome',
+  [NotificationType.CUSTOM]: 'Notification'
 }

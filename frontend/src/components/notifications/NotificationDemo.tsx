@@ -43,9 +43,9 @@ export function NotificationDemo() {
       message: 'Team standup meeting with Sarah, Mike, and 3 others starts at 2:00 PM'
     },
     {
-      type: NotificationType.PROJECT_MILESTONE,
-      title: 'Milestone completed: Phase 1',
-      message: 'Great work! The team has successfully completed Phase 1 of the project.'
+      type: NotificationType.PROJECT_UPDATED,
+      title: 'Project updated: Website Redesign',
+      message: 'Great progress! The project timeline has been updated with new milestones.'
     },
     {
       type: NotificationType.LOW_COMPLIANCE_ALERT,

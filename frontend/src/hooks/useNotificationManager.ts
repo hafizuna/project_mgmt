@@ -38,18 +38,23 @@ export function useNotificationManager({
   const showNotificationToast = useCallback((notification: Notification) => {
     if (!enableToasts || !preferences?.enableInApp) return
 
-    const config = NOTIFICATION_ICONS[notification.type]
+    const config = NOTIFICATION_ICONS[notification.type] || {
+      type: notification.type,
+      icon: 'Bell',
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100'
+    }
     const IconComponent = (LucideIcons as any)[config.icon] || LucideIcons.Bell
-    const label = NOTIFICATION_LABELS[notification.type]
+    const label = NOTIFICATION_LABELS[notification.type] || notification.type.replace(/_/g, ' ')
 
     // Determine toast type based on priority
     const getToastFunction = (priority: NotificationPriority) => {
       switch (priority) {
-        case NotificationPriority.URGENT:
+        case NotificationPriority.Critical:
           return toast.error
-        case NotificationPriority.HIGH:
+        case NotificationPriority.High:
           return toast.warning
-        case NotificationPriority.LOW:
+        case NotificationPriority.Low:
           return toast.info
         default:
           return toast
@@ -121,7 +126,7 @@ export function useNotificationManager({
       category: NotificationCategory.SYSTEM,
       title,
       message,
-      priority: NotificationPriority.NORMAL,
+      priority: NotificationPriority.Medium,
       isRead: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
