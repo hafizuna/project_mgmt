@@ -11,6 +11,7 @@ const dashboardQuerySchema = z.object({
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   projectId: z.string().optional(),
+  assignedToMe: z.string().transform(val => val === 'true').optional(), // Convert string to boolean
 })
 
 // GET /api/dashboard/stats - Overall dashboard statistics
@@ -18,6 +19,8 @@ router.get('/stats', authenticate, async (req, res) => {
   try {
     const query = dashboardQuerySchema.parse(req.query)
     const organizationId = req.user!.orgId
+    const userId = req.user!.userId
+    const userRole = req.user!.role
 
     // Build date filters
     const dateFilter: any = {}
@@ -29,7 +32,29 @@ router.get('/stats', authenticate, async (req, res) => {
     }
 
     // Project filter
-    const projectFilter = query.projectId ? { id: query.projectId } : {}
+    let projectFilter: any = query.projectId ? { id: query.projectId } : {}
+    
+    // Role-based filtering
+    let taskFilter: any = {
+      project: { 
+        orgId: organizationId,
+        ...projectFilter
+      }
+    }
+    
+    // For Team users, filter to only show assigned tasks unless admin/manager overrides
+    if (userRole === 'Team' || query.assignedToMe) {
+      taskFilter.assigneeId = userId
+      // Also filter projects to only those where user is a member
+      projectFilter = {
+        ...projectFilter,
+        members: {
+          some: {
+            userId: userId
+          }
+        }
+      }
+    }
 
     // Parallel queries for better performance
     const [
@@ -45,10 +70,7 @@ router.get('/stats', authenticate, async (req, res) => {
       // Total tasks
       prisma.task.count({
         where: {
-          project: { 
-            orgId: organizationId,
-            ...projectFilter
-          },
+          ...taskFilter,
           ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter })
         }
       }),
@@ -56,10 +78,7 @@ router.get('/stats', authenticate, async (req, res) => {
       // Completed tasks
       prisma.task.count({
         where: {
-          project: { 
-            orgId: organizationId,
-            ...projectFilter
-          },
+          ...taskFilter,
           status: 'Done',
           ...(Object.keys(dateFilter).length > 0 && { updatedAt: dateFilter })
         }
@@ -68,10 +87,7 @@ router.get('/stats', authenticate, async (req, res) => {
       // Overdue tasks
       prisma.task.count({
         where: {
-          project: { 
-            orgId: organizationId,
-            ...projectFilter
-          },
+          ...taskFilter,
           status: { not: 'Done' },
           dueDate: { lt: new Date() }
         }
@@ -94,13 +110,28 @@ router.get('/stats', authenticate, async (req, res) => {
         }
       }),
 
-      // Team members count
-      prisma.user.count({
-        where: {
-          orgId: organizationId,
-          isActive: true
-        }
-      }),
+      // Team members count - Team users only see count of members in their projects
+      userRole === 'Team' ? 
+        prisma.user.count({
+          where: {
+            orgId: organizationId,
+            isActive: true,
+            memberships: {
+              some: {
+                project: {
+                  ...projectFilter,
+                  orgId: organizationId
+                }
+              }
+            }
+          }
+        }) :
+        prisma.user.count({
+          where: {
+            orgId: organizationId,
+            isActive: true
+          }
+        }),
 
       // Recent meetings (last 30 days)
       prisma.meeting.count({
@@ -138,10 +169,7 @@ router.get('/stats', authenticate, async (req, res) => {
     const [previousTasks, previousCompletedTasks] = await Promise.all([
       prisma.task.count({
         where: {
-          project: { 
-            orgId: organizationId,
-            ...projectFilter
-          },
+          ...taskFilter,
           createdAt: {
             gte: previousPeriodStart,
             lte: previousPeriodEnd
@@ -150,10 +178,7 @@ router.get('/stats', authenticate, async (req, res) => {
       }),
       prisma.task.count({
         where: {
-          project: { 
-            orgId: organizationId,
-            ...projectFilter
-          },
+          ...taskFilter,
           status: 'Done',
           updatedAt: {
             gte: previousPeriodStart,
@@ -211,13 +236,32 @@ router.get('/stats', authenticate, async (req, res) => {
 // GET /api/dashboard/projects - Project progress data
 router.get('/projects', authenticate, async (req, res) => {
   try {
+    const query = dashboardQuerySchema.parse(req.query)
     const organizationId = req.user!.orgId
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+
+    // Build project filter based on user role
+    let projectFilter: any = {
+      orgId: organizationId,
+      status: { in: ['Active'] }
+    }
+    
+    // For Team users or when assignedToMe is true, filter to only projects where user is a member
+    if (userRole === 'Team' || query.assignedToMe) {
+      projectFilter.members = {
+        some: {
+          userId: userId
+        }
+      }
+    }
+    
+    if (query.projectId) {
+      projectFilter.id = query.projectId
+    }
 
     const projects = await prisma.project.findMany({
-      where: {
-        orgId: organizationId,
-        status: { in: ['Active'] }
-      },
+      where: projectFilter,
       include: {
         tasks: {
           select: {
@@ -321,13 +365,28 @@ router.get('/projects', authenticate, async (req, res) => {
 // GET /api/dashboard/tasks - Recent and priority tasks
 router.get('/tasks', authenticate, async (req, res) => {
   try {
+    const query = dashboardQuerySchema.parse(req.query)
     const organizationId = req.user!.orgId
+    const userId = req.user!.userId
+    const userRole = req.user!.role
+
+    // Build task filter based on user role
+    let taskFilter: any = {
+      project: { orgId: organizationId },
+      status: { not: 'Done' }
+    }
+    
+    // For Team users or when assignedToMe is true, filter to only assigned tasks
+    if (userRole === 'Team' || query.assignedToMe) {
+      taskFilter.assigneeId = userId
+    }
+    
+    if (query.projectId) {
+      taskFilter.project.id = query.projectId
+    }
 
     const tasks = await prisma.task.findMany({
-      where: {
-        project: { orgId: organizationId },
-        status: { not: 'Done' }
-      },
+      where: taskFilter,
       include: {
         assignee: {
           select: {
@@ -386,18 +445,33 @@ router.get('/tasks', authenticate, async (req, res) => {
 // GET /api/dashboard/deadlines - Upcoming deadlines
 router.get('/deadlines', authenticate, async (req, res) => {
   try {
+    const query = dashboardQuerySchema.parse(req.query)
     const organizationId = req.user!.orgId
+    const userId = req.user!.userId
+    const userRole = req.user!.role
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
+    // Build task filter based on user role
+    let taskFilter: any = {
+      project: { orgId: organizationId },
+      status: { not: 'Done' },
+      dueDate: {
+        gte: new Date(),
+        lte: nextWeek
+      }
+    }
+    
+    // For Team users or when assignedToMe is true, filter to only assigned tasks
+    if (userRole === 'Team' || query.assignedToMe) {
+      taskFilter.assigneeId = userId
+    }
+    
+    if (query.projectId) {
+      taskFilter.project.id = query.projectId
+    }
+
     const upcomingTasks = await prisma.task.findMany({
-      where: {
-        project: { orgId: organizationId },
-        status: { not: 'Done' },
-        dueDate: {
-          gte: new Date(),
-          lte: nextWeek
-        }
-      },
+      where: taskFilter,
       include: {
         project: {
           select: {

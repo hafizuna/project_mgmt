@@ -38,9 +38,9 @@ const updateTaskSchema = z.object({
 const taskQuerySchema = z.object({
   page: z.string().optional().transform(val => val ? parseInt(val) : 1),
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10),
-  search: z.string().optional(),
-  status: z.nativeEnum(TaskStatus).optional(),
-  priority: z.nativeEnum(TaskPriority).optional(),
+  search: z.string().optional().transform(val => val === '' ? undefined : val), // Handle empty search
+  status: z.string().optional(), // Accept frontend enum strings
+  priority: z.string().optional(), // Accept frontend enum strings
   assigneeId: z.string().optional(),
   sortBy: z.enum(['title', 'status', 'priority', 'dueDate', 'createdAt', 'updatedAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
@@ -284,11 +284,13 @@ router.get('/projects/:projectId/tasks', authenticate, async (req: Request, res:
     }
 
     if (status) {
-      where.status = status
+      // Transform frontend status to backend status
+      where.status = mapFrontendStatusToBackend(status)
     }
 
     if (priority) {
-      where.priority = priority
+      // Transform frontend priority to backend priority
+      where.priority = mapFrontendPriorityToBackend(priority)
     }
 
     if (assigneeId) {

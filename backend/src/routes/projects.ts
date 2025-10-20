@@ -37,9 +37,9 @@ const updateProjectSchema = z.object({
 const querySchema = z.object({
   page: z.string().optional().transform(val => val ? parseInt(val) : 1),
   limit: z.string().optional().transform(val => val ? parseInt(val) : 10),
-  search: z.string().optional(),
-  status: z.nativeEnum(ProjectStatus).optional(),
-  priority: z.nativeEnum(ProjectPriority).optional(),
+  search: z.string().optional().transform(val => val === '' ? undefined : val), // Handle empty search
+  status: z.string().optional(), // Accept frontend enum strings
+  priority: z.string().optional(), // Accept frontend enum strings  
   ownerId: z.string().optional(),
 })
 
@@ -212,11 +212,13 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     }
 
     if (status) {
-      where.status = status
+      // Transform frontend status to backend status
+      where.status = mapFrontendStatusToBackend(status)
     }
 
     if (priority) {
-      where.priority = priority
+      // Transform frontend priority to backend priority
+      where.priority = mapFrontendPriorityToBackend(priority)
     }
 
     if (ownerId) {
