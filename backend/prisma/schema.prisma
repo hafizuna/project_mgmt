@@ -25,6 +25,7 @@ model Organization {
   reportSettings  ReportSettings?
   notifications   Notification[]
   notificationTemplates NotificationTemplate[]
+  knowledgeEntries KnowledgeEntry[]
 }
 
 model User {
@@ -55,6 +56,8 @@ model User {
   reportReminders  ReportReminder[]
   notifications    Notification[]
   notificationPreferences NotificationPreference?
+  knowledgeEntries KnowledgeEntry[]
+  knowledgeComments KnowledgeComment[]
   org              Organization       @relation(fields: [orgId], references: [id])
   sessions         UserSession[]
 }
@@ -801,4 +804,58 @@ enum EmailDigestFrequency {
   Hourly
   Daily
   Weekly
+}
+
+// Knowledge Base Models
+model KnowledgeEntry {
+  id          String               @id @default(uuid())
+  orgId       String
+  authorId    String
+  title       String
+  category    KnowledgeCategory
+  content     Json                 // Structured template content
+  tags        String[]             // Array of tags for filtering
+  status      KnowledgeStatus      @default(Published)
+  
+  // Metadata
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  
+  // Relations
+  org         Organization         @relation(fields: [orgId], references: [id])
+  author      User                 @relation(fields: [authorId], references: [id])
+  comments    KnowledgeComment[]
+  
+  @@index([orgId, category])
+  @@index([orgId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model KnowledgeComment {
+  id        String         @id @default(uuid())
+  entryId   String
+  authorId  String
+  content   String
+  parentId  String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  
+  // Relations
+  entry     KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  author    User           @relation(fields: [authorId], references: [id])
+  parent    KnowledgeComment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   KnowledgeComment[] @relation("CommentReplies")
+}
+
+enum KnowledgeCategory {
+  MARKET_RESEARCH
+  COMPETITOR_ANALYSIS
+  CUSTOMER_INSIGHTS
+  LESSONS_LEARNED
+}
+
+enum KnowledgeStatus {
+  Draft
+  Published
+  Archived
 }

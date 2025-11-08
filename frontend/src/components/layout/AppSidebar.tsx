@@ -14,6 +14,7 @@ import {
   Bell,
   TestTube,
   LayoutGrid,
+  BookOpen,
 } from "lucide-react";
 
 import {
@@ -36,6 +37,7 @@ const baseNavigationItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Task Board", url: "/tasks/board", icon: LayoutGrid },
   { title: "Meetings", url: "/meetings", icon: Calendar },
+  { title: "Knowledge Base", url: "/knowledge", icon: BookOpen },
 ];
 
 // Manager+ specific navigation items

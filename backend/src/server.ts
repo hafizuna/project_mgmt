@@ -19,6 +19,7 @@ import { dashboardRouter } from './routes/dashboard.js'
 import weeklyReportsRouter from './routes/weeklyReports.js'
 import notificationsRoutes from './routes/notifications.js'
 import schedulerRoutes from './routes/scheduler.js'
+import { knowledgeRouter } from './routes/knowledge.js'
 import { TaskScheduler } from './services/TaskScheduler.js'
 
 const envSchema = z.object({
@@ -67,6 +68,7 @@ app.use('/api/dashboard', dashboardRouter)
 app.use('/api/reports', weeklyReportsRouter)
 app.use('/api/notifications', notificationsRoutes)
 app.use('/api/scheduler', schedulerRoutes)
+app.use('/api/knowledge', knowledgeRouter)
 
 // Root
 app.get('/api', (_req, res) => {

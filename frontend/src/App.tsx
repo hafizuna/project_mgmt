@@ -23,6 +23,7 @@ import { Team } from "./pages/Team";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { NotificationCenter, NotificationPreferences, NotificationDemo } from "./components/notifications";
 import { NotificationTest } from "./components/notifications/NotificationTest";
+import { KnowledgeList, KnowledgeDetail, KnowledgeForm } from "./pages/Knowledge";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,12 @@ const App = () => (
             
             {/* Reports Routes */}
             <Route path="reports" element={<Reports />} />
+            
+            {/* Knowledge Base Routes */}
+            <Route path="knowledge" element={<KnowledgeList />} />
+            <Route path="knowledge/new" element={<KnowledgeForm />} />
+            <Route path="knowledge/:id" element={<KnowledgeDetail />} />
+            <Route path="knowledge/:id/edit" element={<KnowledgeForm />} />
             
             {/* Team Routes - Admin Only */}
             <Route 
